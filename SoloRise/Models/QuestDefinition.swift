@@ -1,0 +1,62 @@
+import Foundation
+
+enum QuestID: String, CaseIterable {
+    case workout, nutrition, study, reading, recovery
+}
+
+struct QuestDefinition: Identifiable {
+    var id: String { questID.rawValue }
+    let questID: QuestID
+    let sfSymbol: String       // SF Symbol instead of emoji
+    let name: String
+    let flavor: String
+    let rewards: [Reward]
+
+    struct Reward {
+        let type: RewardType
+        let value: Int
+        var label: String { "+\(value) \(type.label)" }
+    }
+
+    enum RewardType: Equatable {
+        case str, int, vit, wis, xp, gold
+        var label: String {
+            switch self {
+            case .str:  return "STR"
+            case .int:  return "INT"
+            case .vit:  return "VIT"
+            case .wis:  return "WIS"
+            case .xp:   return "EXP"
+            case .gold: return "Gold"
+            }
+        }
+    }
+
+    static let all: [QuestDefinition] = [
+        .init(questID: .workout,
+              sfSymbol: "figure.strengthtraining.traditional",
+              name: "Daily Training",
+              flavor: "The body is a weapon. Sharpen it.",
+              rewards: [.init(type: .str, value: 10), .init(type: .xp, value: 15), .init(type: .gold, value: 5)]),
+        .init(questID: .nutrition,
+              sfSymbol: "fork.knife",
+              name: "Proper Nutrition",
+              flavor: "Fuel the machine.",
+              rewards: [.init(type: .vit, value: 8), .init(type: .xp, value: 12), .init(type: .gold, value: 5)]),
+        .init(questID: .study,
+              sfSymbol: "terminal.fill",
+              name: "Study Session",
+              flavor: "Knowledge is the mage's blade.",
+              rewards: [.init(type: .int, value: 12), .init(type: .xp, value: 20), .init(type: .gold, value: 8)]),
+        .init(questID: .reading,
+              sfSymbol: "book.fill",
+              name: "Knowledge Gathering",
+              flavor: "Every page is a level gained.",
+              rewards: [.init(type: .wis, value: 10), .init(type: .xp, value: 12), .init(type: .gold, value: 5)]),
+        .init(questID: .recovery,
+              sfSymbol: "moon.stars.fill",
+              name: "Recovery Protocol",
+              flavor: "Even the Shadow Monarch rests.",
+              rewards: [.init(type: .vit, value: 8), .init(type: .xp, value: 10), .init(type: .gold, value: 4)]),
+    ]
+}
