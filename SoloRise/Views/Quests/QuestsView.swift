@@ -4,10 +4,10 @@ struct QuestsView: View {
     let store: HunterStore
     @State private var showReward: QuestDefinition? = nil
 
-    private let buffs: [(label: String, sfSymbol: String, color: Color, keyPath: WritableKeyPath<DailyLog, Bool>)] = [
-        ("Supplements taken · +5% VIT EXP",  "pills.fill",     .sysPurple, \.supplementsBuff),
-        ("Water goal reached · +8% VIT EXP", "drop.fill",      .sysBlue,   \.waterBuff),
-        ("Protein goal hit · +6% STR EXP",   "bolt.heart.fill", .sysRed,    \.proteinBuff),
+    private let buffs: [(label: String, effect: String, sfSymbol: String, color: Color, keyPath: WritableKeyPath<DailyLog, Bool>)] = [
+        ("Supplements taken", "+5% VIT EXP", "pills.fill",      .sysPurple, \.supplementsBuff),
+        ("Water goal reached", "+8% VIT EXP", "drop.fill",      .sysBlue,   \.waterBuff),
+        ("Protein goal hit",   "+6% STR EXP", "bolt.heart.fill", .sysRed,   \.proteinBuff),
     ]
 
     var body: some View {
@@ -16,11 +16,18 @@ struct QuestsView: View {
                 progressBar
                 SysSection(title: "DAILY QUESTS")
                 ForEach(QuestDefinition.all) { quest in
-                    QuestRow(quest: quest, isDone: store.isComplete(quest.questID)) {
-                        if store.completeQuest(quest.questID) {
+                    QuestRow(
+                        quest: quest,
+                        isDone: store.isComplete(quest.questID),
+                        onComplete: {
+                            store.completeQuest(quest.questID)
                             showReward = quest
+                        },
+                        onUncomplete: {
+                            store.uncompleteQuest(quest.questID)
+                            Haptic.tap()
                         }
-                    }
+                    )
                 }
                 SysSection(title: "PASSIVE BUFFS").padding(.top, 4)
                 ForEach(buffs, id: \.label) { buff in
@@ -28,6 +35,7 @@ struct QuestsView: View {
                         sfSymbol: buff.sfSymbol,
                         color: buff.color,
                         name: buff.label,
+                        effect: buff.effect,
                         isOn: store.todayLog[keyPath: buff.keyPath]
                     ) {
                         store.toggleBuff(buff.keyPath)
@@ -37,7 +45,7 @@ struct QuestsView: View {
             }
             .padding(14)
         }
-        .background(Color.sysBG)
+        .background(Color.clear)
         .sheet(item: $showReward) { q in
             QuestClearSheet(quest: q) { showReward = nil }
         }
@@ -78,6 +86,7 @@ struct QuestRow: View {
     let quest: QuestDefinition
     let isDone: Bool
     let onComplete: () -> Void
+    let onUncomplete: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
@@ -127,7 +136,9 @@ struct QuestRow: View {
                 .frame(width: 3)
         }
         .contentShape(Rectangle())
-        .onTapGesture { if !isDone { onComplete() } }
+        .onTapGesture {
+            if isDone { onUncomplete() } else { onComplete() }
+        }
         .animation(.easeOut(duration: 0.2), value: isDone)
     }
 
@@ -143,12 +154,9 @@ struct QuestRow: View {
 
     private func pillColor(_ reward: QuestDefinition.Reward) -> Color {
         switch reward.type {
-        case .str:  return .sysRed
-        case .int:  return .sysBlue
-        case .vit:  return .sysGreen
-        case .wis:  return .sysPurple
-        case .xp:   return .sysBlue
-        case .gold: return .sysGold
+        case .str: return .sysRed;   case .int: return .sysBlue
+        case .vit: return .sysGreen; case .wis: return .sysPurple
+        case .xp:  return .sysBlue;  case .gold: return .sysGold
         }
     }
 }
@@ -158,22 +166,27 @@ struct BuffRow: View {
     let sfSymbol: String
     let color: Color
     let name: String
+    let effect: String
     let isOn: Bool
     let onToggle: () -> Void
 
     var body: some View {
         HStack(spacing: 12) {
             ZStack {
-                Rectangle().fill(color.opacity(0.12)).frame(width: 32, height: 32)
+                Rectangle().fill(color.opacity(0.12)).frame(width: 36, height: 36)
                 Image(systemName: sfSymbol)
-                    .font(.system(size: 14, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))
                     .foregroundStyle(isOn ? color : Color.textSecondary)
             }
-            Text(name)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(isOn ? color : Color.textPrimary)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(name)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(isOn ? color : Color.textPrimary)
+                Text(effect)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(isOn ? color.opacity(0.7) : Color.textSecondary)
+            }
             Spacer()
-            // Toggle pill
             ZStack(alignment: isOn ? .trailing : .leading) {
                 Capsule().fill(isOn ? color.opacity(0.3) : Color.sysBorder2)
                     .frame(width: 40, height: 24)

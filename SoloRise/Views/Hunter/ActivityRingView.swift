@@ -22,14 +22,14 @@ struct ActivityRing: View {
                         .trim(from: 0, to: animatedProgress)
                         .stroke(
                             AngularGradient(
-                                colors: [Color.sysBlue, Color.sysCyan, Color.sysBlue],
+                                colors: [Color.sysPurple, Color.sysBlue, Color.sysCyan, Color.sysBlue, Color.sysPurple],
                                 center: .center
                             ),
                             style: StrokeStyle(lineWidth: 11, lineCap: .round)
                         )
                         .frame(width: 84, height: 84)
                         .rotationEffect(.degrees(-90))
-                        .shadow(color: Color.sysBlue.opacity(0.5), radius: 8)
+                        .shadow(color: Color.sysPurple.opacity(0.7), radius: 10)
 
                     VStack(spacing: 0) {
                         Text("\(done)")
@@ -51,7 +51,7 @@ struct ActivityRing: View {
                         .lineLimit(1)
 
                     if done == total {
-                        Text("ALL CLEARED")
+                        Text("ALL CLEAR")
                             .font(.system(size: 16, weight: .bold, design: .monospaced))
                             .foregroundStyle(Color.sysGreen)
                             .lineLimit(1)

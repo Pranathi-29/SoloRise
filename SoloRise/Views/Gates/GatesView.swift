@@ -33,7 +33,7 @@ struct GatesView: View {
             }
             .padding(14)
         }
-        .background(Color.sysBG)
+        .background(Color.clear)
     }
 
     private var sysHeader: some View {
@@ -74,8 +74,11 @@ struct GateCard: View {
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .foregroundStyle(gate.isOpen ? gate.rankColor : Color.textDim)
 
-            Text(gate.icon).font(.system(size: 26))
-                .opacity(gate.isOpen ? 1 : 0.3)
+            Image(systemName: gate.sfSymbol)
+                .font(.system(size: 24, weight: .medium))
+                .foregroundStyle(gate.isOpen ? gate.rankColor : Color.textDim)
+                .opacity(gate.isOpen ? 1 : 0.35)
+                .shadow(color: gate.isOpen ? gate.rankColor.opacity(0.6) : .clear, radius: 6)
 
             Text(gate.name)
                 .font(.system(size: 10, weight: .semibold, design: .rounded))
@@ -117,9 +120,11 @@ struct ShadowCard: View {
 
     var body: some View {
         VStack(spacing: 5) {
-            Text(shadow.icon).font(.system(size: 22))
+            Image(systemName: shadow.sfSymbol)
+                .font(.system(size: 20, weight: .medium))
+                .foregroundStyle(shadow.isSummoned ? Color.sysBlue : Color.textDim)
                 .opacity(shadow.isSummoned ? 1 : 0.25)
-                .shadow(color: shadow.isSummoned ? Color.sysPurple.opacity(0.8) : .clear, radius: 8)
+                .shadow(color: shadow.isSummoned ? Color.sysBlue.opacity(0.9) : .clear, radius: 10)
             Text(shadow.name)
                 .font(.system(size: 8, weight: .bold, design: .monospaced))
                 .foregroundStyle(shadow.isSummoned ? Color.sysPurple : Color.textDim)
@@ -136,7 +141,7 @@ struct ShadowCard: View {
 // MARK: - Data models
 struct GateData: Identifiable {
     let id: String
-    let icon: String
+    let sfSymbol: String
     let name: String
     let rankLabel: String
     let rankColor: Color
@@ -150,22 +155,22 @@ struct GateData: Identifiable {
         let r = hunter.rank.rawValue
 
         return [
-            .init(id:"g1", icon:"🚪", name:"Beginners Gate",   rankLabel:"RANK E", rankColor:.rankE, requirement:"Start", isOpen:true,       isCleared:true),
-            .init(id:"g2", icon:"🌲", name:"Forest Dungeon",   rankLabel:"RANK E", rankColor:.rankE, requirement:"3 workouts",  isOpen:w>=3,   isCleared:w>=3),
-            .init(id:"g3", icon:"🗡️", name:"Iron Keep",        rankLabel:"RANK D", rankColor:.rankD, requirement:"10 workouts", isOpen:w>=10,  isCleared:false),
-            .init(id:"g4", icon:"📖", name:"Scholar Vault",    rankLabel:"RANK D", rankColor:.rankD, requirement:"25 study",    isOpen:s>=25,  isCleared:false),
-            .init(id:"g5", icon:"🏔️", name:"Frost Citadel",    rankLabel:"RANK C", rankColor:.rankC, requirement:"C-Rank",      isOpen:r>=2,   isCleared:false),
-            .init(id:"g6", icon:"🌋", name:"Inferno Rift",     rankLabel:"RANK B", rankColor:.rankB, requirement:"B-Rank",      isOpen:r>=3,   isCleared:false),
-            .init(id:"g7", icon:"🏰", name:"Shadow Fortress",  rankLabel:"RANK A", rankColor:.rankA, requirement:"A-Rank",      isOpen:r>=4,   isCleared:false),
-            .init(id:"g8", icon:"👁️", name:"Monarchs Domain",  rankLabel:"RANK S", rankColor:.rankS, requirement:"S-Rank",      isOpen:r>=5,   isCleared:false),
-            .init(id:"g9", icon:"⚔️", name:"Ashborn Throne",   rankLabel:"RANK S", rankColor:.rankS, requirement:"All 30 days", isOpen:false,  isCleared:false),
+            .init(id:"g1", sfSymbol:"checkmark.shield.fill",                    name:"Beginners Gate",  rankLabel:"RANK E", rankColor:.rankE, requirement:"Start",       isOpen:true,  isCleared:true),
+            .init(id:"g2", sfSymbol:"leaf.fill",                    name:"Forest Dungeon",  rankLabel:"RANK E", rankColor:.rankE, requirement:"3 workouts",  isOpen:w>=3,  isCleared:w>=3),
+            .init(id:"g3", sfSymbol:"shield.fill",                  name:"Iron Keep",       rankLabel:"RANK D", rankColor:.rankD, requirement:"10 workouts", isOpen:w>=10, isCleared:false),
+            .init(id:"g4", sfSymbol:"books.vertical.fill",          name:"Scholar Vault",   rankLabel:"RANK D", rankColor:.rankD, requirement:"25 study",    isOpen:s>=25, isCleared:false),
+            .init(id:"g5", sfSymbol:"snowflake",                    name:"Frost Citadel",   rankLabel:"RANK C", rankColor:.rankC, requirement:"C-Rank",      isOpen:r>=2,  isCleared:false),
+            .init(id:"g6", sfSymbol:"flame.fill",                   name:"Inferno Rift",    rankLabel:"RANK B", rankColor:.rankB, requirement:"B-Rank",      isOpen:r>=3,  isCleared:false),
+            .init(id:"g7", sfSymbol:"moon.fill",                    name:"Shadow Fortress", rankLabel:"RANK A", rankColor:.rankA, requirement:"A-Rank",      isOpen:r>=4,  isCleared:false),
+            .init(id:"g8", sfSymbol:"eye.fill",                     name:"Monarchs Domain", rankLabel:"RANK S", rankColor:.rankS, requirement:"S-Rank",      isOpen:r>=5,  isCleared:false),
+            .init(id:"g9", sfSymbol:"crown.fill",                   name:"Ashborn Throne",  rankLabel:"RANK S", rankColor:.rankS, requirement:"All 30 days", isOpen:false, isCleared:false),
         ]
     }
 }
 
 struct ShadowData: Identifiable {
     let id: String
-    let icon: String
+    let sfSymbol: String
     let name: String
     let isSummoned: Bool
 
@@ -174,14 +179,14 @@ struct ShadowData: Identifiable {
         let s = hunter.totalStudySessions
         let r = hunter.rank.rawValue
         return [
-            .init(id:"s1", icon:"💀", name:"IGRIS",     isSummoned: w >= 5),
-            .init(id:"s2", icon:"🐺", name:"BERU",      isSummoned: s >= 10),
-            .init(id:"s3", icon:"🗡️", name:"TUSK",      isSummoned: w >= 15),
-            .init(id:"s4", icon:"🐍", name:"KAISEL",    isSummoned: r >= 2),
-            .init(id:"s5", icon:"🔥", name:"IRON",      isSummoned: w >= 30),
-            .init(id:"s6", icon:"⚡", name:"TANK",      isSummoned: s >= 25),
-            .init(id:"s7", icon:"🌑", name:"GREED",     isSummoned: r >= 3),
-            .init(id:"s8", icon:"👁️", name:"ARCHITECT", isSummoned: r >= 5),
+            .init(id:"s1", sfSymbol:"figure.fencing",          name:"IGRIS",     isSummoned: w >= 5),
+            .init(id:"s2", sfSymbol:"ant.fill",                name:"BERU",      isSummoned: s >= 10),
+            .init(id:"s3", sfSymbol:"shield.lefthalf.filled",                    name:"TUSK",      isSummoned: w >= 15),
+            .init(id:"s4", sfSymbol:"lizard.fill",             name:"KAISEL",    isSummoned: r >= 2),
+            .init(id:"s5", sfSymbol:"shield.lefthalf.filled",  name:"IRON",      isSummoned: w >= 30),
+            .init(id:"s6", sfSymbol:"pawprint.fill",           name:"TANK",      isSummoned: s >= 25),
+            .init(id:"s7", sfSymbol:"moon.stars.fill",         name:"GREED",     isSummoned: r >= 3),
+            .init(id:"s8", sfSymbol:"eye.trianglebadge.exclamationmark", name:"ARCHITECT", isSummoned: r >= 5),
         ]
     }
 }

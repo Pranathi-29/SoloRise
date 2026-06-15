@@ -21,7 +21,7 @@ struct FeatsView: View {
             }
             .padding(14)
         }
-        .background(Color.sysBG)
+        .background(Color.clear)
     }
 
     private var raidsHeader: some View {

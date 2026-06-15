@@ -3,22 +3,23 @@ import UIKit
 
 // MARK: - Solo Leveling System color palette
 extension Color {
-    static let sysBG         = Color(hex: "#050810")
-    static let sysPanel      = Color(hex: "#080D1A")
-    static let sysCard       = Color(hex: "#0C1220")
-    static let sysCard2      = Color(hex: "#101828")
-    static let sysBorder     = Color(hex: "#1A2540")
-    static let sysBorder2    = Color(hex: "#243050")
+    static let sysBG         = Color(hex: "#07050F")  // deep purple-black
+    static let sysPanel      = Color(hex: "#0D0A1A")
+    static let sysCard       = Color(hex: "#110D20")
+    static let sysCard2      = Color(hex: "#130E22")
+    static let sysBorder     = Color(hex: "#2D1F4A")
+    static let sysBorder2    = Color(hex: "#3D2A60")
 
-    static let sysBlue       = Color(hex: "#4A9EFF")
-    static let sysBlueDim    = Color(hex: "#1A3A6A")
-    static let sysCyan       = Color(hex: "#00D4FF")
-    static let sysPurple     = Color(hex: "#7B5CE4")
-    static let sysPurpleDim  = Color(hex: "#3A2880")
+    static let sysBlue       = Color(hex: "#A78BFF")  // primary purple
+    static let sysBlueDim    = Color(hex: "#3D2980")  // dark purple
+    static let sysCyan       = Color(hex: "#C084FC")  // lighter purple/violet
+    static let sysPurple     = Color(hex: "#7C3AED")  // deep purple
+    static let sysPurpleDim  = Color(hex: "#2D1A5E")  // darkest purple
     static let sysGold       = Color(hex: "#FFD700")
     static let sysGoldDim    = Color(hex: "#6A5400")
     static let sysGreen      = Color(hex: "#39FF6A")
     static let sysRed        = Color(hex: "#FF4060")
+    static let sysPink       = Color(hex: "#FF6EB4")  // magenta accent
 
     static let textPrimary   = Color(hex: "#C8D8FF")
     static let textSecondary = Color(hex: "#5A7AAA")

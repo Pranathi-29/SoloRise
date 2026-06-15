@@ -14,7 +14,8 @@ struct HunterView: View {
             }
             .padding(14)
         }
-        .background(Color.sysBG)
+        .scrollContentBackground(.hidden)
+        .background(Color.clear)
     }
 
     // MARK: - Status Window

@@ -31,7 +31,7 @@ struct ContentView: View {
     private func mainView(store: HunterStore) -> some View {
         ZStack(alignment: .bottom) {
             ZStack {
-                Color.sysBG.ignoresSafeArea()
+                ParticleBackground()
                 switch selectedTab {
                 case .hunter: HunterView(store: store)
                 case .quests: QuestsView(store: store)
@@ -39,6 +39,7 @@ struct ContentView: View {
                 case .feats:  FeatsView(store: store)
                 }
             }
+            .clipped()
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             SystemTabBar(selected: $selectedTab)
@@ -137,71 +138,96 @@ struct RankUpOverlay: View {
     let rank: HunterRank
     let onDismiss: () -> Void
 
+    @State private var textVisible = false
+    @State private var circleVisible = false
+
     var body: some View {
         ZStack {
-            Color.black.opacity(0.85).ignoresSafeArea()
-                .onTapGesture { onDismiss() }
+            // Dark backdrop
+            Color.black.opacity(0.97).ignoresSafeArea()
+                .background(.ultraThinMaterial)
 
-            VStack(spacing: 20) {
-                Text("[ SYSTEM MESSAGE ]")
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(Color.sysGold).tracking(3)
-
-                Text(rank.label)
-                    .font(.system(size: 72, weight: .black, design: .monospaced))
-                    .foregroundStyle(rank.color)
-                    .shadow(color: rank.color.opacity(0.8), radius: 20)
-
-                Text("YOU HAVE BEEN PROMOTED")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color.textSecondary).tracking(3)
-
-                Text(rank.title.uppercased())
-                    .font(.system(size: 14, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(rank.color).tracking(2)
-
-                HStack(spacing: 24) {
-                    VStack(spacing: 4) {
-                        Text("+1")
-                            .font(.system(size: 22, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Color.sysBlue)
-                        Text("STAT POINT")
-                            .font(.system(size: 8, design: .monospaced))
-                            .foregroundStyle(Color.textSecondary)
+            VStack(spacing: 0) {
+                // Magic circle — appears first
+                ZStack {
+                    if circleVisible {
+                        MagicCircleView(rank: rank)
+                            .transition(.scale(scale: 0.3).combined(with: .opacity))
                     }
-                    VStack(spacing: 4) {
-                        Text("+50")
-                            .font(.system(size: 22, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Color.sysGold)
-                        Text("GOLD")
-                            .font(.system(size: 8, design: .monospaced))
-                            .foregroundStyle(Color.textSecondary)
+
+                    // Rank letter on top of circle
+                    if textVisible {
+                        Text(rank.label)
+                            .font(.system(size: 56, weight: .black, design: .monospaced))
+                            .foregroundStyle(rank.color)
+                            .shadow(color: rank.color, radius: 24)
+                            .transition(.scale(scale: 1.4).combined(with: .opacity))
                     }
                 }
+                .frame(height: 300)
 
-                Button {
-                    Haptic.rankUp()
-                    onDismiss()
-                } label: {
-                    Text("ACKNOWLEDGE")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .tracking(3).foregroundStyle(Color.sysGold)
-                        .padding(.horizontal, 32).padding(.vertical, 12)
-                        .overlay(Rectangle().stroke(Color.sysGold, lineWidth: 1))
+                if textVisible {
+                    VStack(spacing: 16) {
+                        Text("[ SYSTEM MESSAGE ]")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(Color.sysGold).tracking(3)
+
+                        Text("YOU HAVE BEEN PROMOTED")
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color.textSecondary).tracking(2)
+
+                        Text(rank.title.uppercased())
+                            .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            .foregroundStyle(rank.color).tracking(2)
+
+                        HStack(spacing: 32) {
+                            VStack(spacing: 4) {
+                                Text("+1")
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(Color.sysBlue)
+                                Text("STAT POINT")
+                                    .font(.system(size: 8, design: .monospaced))
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                            VStack(spacing: 4) {
+                                Text("+50")
+                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(Color.sysGold)
+                                Text("GOLD")
+                                    .font(.system(size: 8, design: .monospaced))
+                                    .foregroundStyle(Color.textSecondary)
+                            }
+                        }
+                        .padding(.top, 4)
+
+                        Button {
+                            Haptic.rankUp()
+                            onDismiss()
+                        } label: {
+                            Text("ACKNOWLEDGE")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .tracking(3).foregroundStyle(Color.sysGold)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .overlay(Rectangle().stroke(Color.sysGold, lineWidth: 1))
+                        }
+                        .padding(.horizontal, 40)
+                        .padding(.top, 8)
+                    }
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
-            .padding(32)
-            .background(Color.sysPanel)
-            .overlay(Rectangle().stroke(Color.sysGoldDim, lineWidth: 1))
-            .overlay(alignment: .top) {
-                LinearGradient(colors: [.clear, .sysGold, .clear],
-                               startPoint: .leading, endPoint: .trailing).frame(height: 1)
+        }
+        .onAppear {
+            // Circle appears first
+            withAnimation(.spring(duration: 0.6)) {
+                circleVisible = true
             }
-            .overlay(alignment: .bottom) {
-                LinearGradient(colors: [.clear, .sysGold, .clear],
-                               startPoint: .leading, endPoint: .trailing).frame(height: 1)
+            // Text slides up after
+            withAnimation(.easeOut(duration: 0.5).delay(0.4)) {
+                textVisible = true
             }
-            .padding(.horizontal, 32)
+            Haptic.rankUp()
         }
     }
 }
