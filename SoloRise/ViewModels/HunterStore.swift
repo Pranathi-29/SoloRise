@@ -8,8 +8,9 @@ final class HunterStore {
     var todayLog: DailyLog
     var pendingRankUp: HunterRank? = nil
     var lastClearedQuest: QuestDefinition? = nil
+    var refreshTick: Int = 0  // bump to force view refresh
 
-    private let modelContext: ModelContext
+    let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
@@ -105,6 +106,7 @@ final class HunterStore {
         case .reading:   hunter.totalReadingSessions = max(0, hunter.totalReadingSessions - 1)
         case .recovery:  hunter.totalRecoveryDays = max(0, hunter.totalRecoveryDays - 1)
         }
+        refreshTick += 1
         save()
     }
 

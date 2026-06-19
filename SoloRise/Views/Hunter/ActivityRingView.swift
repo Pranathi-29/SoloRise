@@ -112,8 +112,8 @@ struct CalendarSheet: View {
     let done: Int
     let total: Int
 
-    // We re-fetch logs here so the sheet is self-contained
     @State private var logs: [DailyLog] = []
+    @State private var selectedDay: (log: DailyLog, date: Date)? = nil
 
     private let columns = ["M", "Tu", "W", "Th", "F", "Sa", "Su"]
 
@@ -144,6 +144,13 @@ struct CalendarSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .onAppear { fetchLogs() }
+        .sheet(item: Binding(
+            get: { selectedDay.map { SelectedDay(log: $0.log, date: $0.date) } },
+            set: { _ in selectedDay = nil }
+        )) { selected in
+            DayDetailView(log: selected.log, date: selected.date)
+                .presentationDetents([.medium, .large])
+        }
     }
 
     // MARK: - Header
@@ -244,6 +251,19 @@ struct CalendarSheet: View {
                 .shadow(color: cell.isToday ? Color.sysCyan.opacity(0.6) : .clear, radius: 4)
                 .frame(maxWidth: .infinity)
                 .aspectRatio(1, contentMode: .fit)
+                .onTapGesture {
+                    if let log = cell.log {
+                        selectedDay = (log, cell.date)
+                    }
+                }
+                .overlay(alignment: .topTrailing) {
+                    if cell.hasData {
+                        Circle()
+                            .fill(Color.sysCyan.opacity(0.6))
+                            .frame(width: 4, height: 4)
+                            .padding(2)
+                    }
+                }
 
             // Completion dots for days with partial progress
             if cell.hasData && cell.completionRate < 1.0 {
@@ -304,6 +324,14 @@ struct CalendarSheet: View {
         var isFuture: Bool
         var hasData: Bool
         var completionRate: Double
+        var date: Date = .now
+        var log: DailyLog? = nil
+    }
+
+    struct SelectedDay: Identifiable {
+        let id = UUID()
+        let log: DailyLog
+        let date: Date
     }
 
     private func buildCells() -> [CalendarCell] {

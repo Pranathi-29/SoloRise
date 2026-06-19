@@ -6,23 +6,39 @@ struct ContentView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var store: HunterStore?
     @State private var selectedTab: Tab = .hunter
+    @State private var showLaunch: Bool = true
 
     enum Tab { case hunter, quests, gates, feats }
 
     var body: some View {
-        Group {
-            if let store {
-                mainView(store: store)
-            } else {
-                bootScreen
+        ZStack {
+            Group {
+                if let store {
+                    mainView(store: store)
+                } else {
+                    Color(hex: "#07050F").ignoresSafeArea()
+                }
+            }
+            if showLaunch {
+                LaunchScreenView {
+                    showLaunch = false
+                }
+                .transition(.opacity)
+                .zIndex(99)
             }
         }
+        .animation(.easeOut(duration: 0.3), value: showLaunch)
         .onAppear {
             store = HunterStore(modelContext: modelContext)
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
                 store?.onAppActive()
+            }
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active && !showLaunch {
+                // already handled above
             }
         }
     }

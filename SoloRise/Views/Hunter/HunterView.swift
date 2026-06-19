@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HunterView: View {
     let store: HunterStore
+    @State private var showEditName = false
 
     var body: some View {
         ScrollView {
@@ -16,6 +17,13 @@ struct HunterView: View {
         }
         .scrollContentBackground(.hidden)
         .background(Color.clear)
+        .sheet(isPresented: $showEditName) {
+            EditNameView(name: Binding(
+                get: { store.hunter.name },
+                set: { store.hunter.name = $0; try? store.modelContext.save() }
+            ))
+            .presentationDetents([.medium])
+        }
     }
 
     // MARK: - Status Window
@@ -53,9 +61,15 @@ struct HunterView: View {
                 .frame(width: 56, height: 56)
 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(store.hunter.name)
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .foregroundStyle(.white)
+                    HStack(spacing: 6) {
+                        Text(store.hunter.name)
+                            .font(.system(size: 16, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Color.textDim)
+                    }
+                    .onTapGesture { showEditName = true }
                     Text(store.hunter.rank.title.uppercased())
                         .font(.system(size: 10, weight: .semibold, design: .rounded))
                         .foregroundStyle(Color.sysPurple).tracking(1)
@@ -101,6 +115,7 @@ struct HunterView: View {
                 StatBar(label: "WIS", value: store.hunter.statWIS, color: .sysPurple)
             }
         }
+        .id(store.refreshTick) // redraw when stats change
     }
 
     // MARK: - Gold + Streak
@@ -111,6 +126,7 @@ struct HunterView: View {
             bottomStat(icon: "flame.fill", label: "STREAK",
                        value: "\(store.hunter.streak) DAYS", color: .orange, iconColor: .orange)
         }
+        .id(store.refreshTick)
     }
 
     private func bottomStat(icon: String, label: String, value: String,

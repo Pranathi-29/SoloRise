@@ -7,7 +7,7 @@ struct QuestsView: View {
     private let buffs: [(label: String, effect: String, sfSymbol: String, color: Color, keyPath: WritableKeyPath<DailyLog, Bool>)] = [
         ("Supplements taken", "+5% VIT EXP", "pills.fill",      .sysPurple, \.supplementsBuff),
         ("Water goal reached", "+8% VIT EXP", "drop.fill",      .sysBlue,   \.waterBuff),
-        ("Protein goal hit",   "+6% STR EXP", "bolt.heart.fill", .sysRed,   \.proteinBuff),
+        ("No junk food",       "+6% STR EXP", "xmark.circle.fill", .sysRed,  \.proteinBuff),
     ]
 
     var body: some View {
