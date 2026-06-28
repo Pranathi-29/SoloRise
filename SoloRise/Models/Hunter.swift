@@ -49,9 +49,9 @@ final class Hunter {
     var rankProgress: Double {
         guard let _ = rank.next else { return 1.0 }
         let required = rank.powerRequired
-        // Base power at start of this rank
-        let previousRequired = rank.rawValue > 0 ? HunterRank(rawValue: rank.rawValue - 1)!.powerRequired : 0
-        let progress = Double(power - previousRequired) / Double(required - previousRequired)
+        // For rank E, base is 40 (4 stats × 10 starting value) so the bar starts at 0%
+        let base = rank.rawValue > 0 ? HunterRank(rawValue: rank.rawValue - 1)!.powerRequired : 40
+        let progress = Double(power - base) / Double(required - base)
         return max(0, min(1, progress))
     }
 

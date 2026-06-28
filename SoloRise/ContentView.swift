@@ -36,11 +36,6 @@ struct ContentView: View {
                 store?.onAppActive()
             }
         }
-        .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active && !showLaunch {
-                // already handled above
-            }
-        }
     }
 
     // MARK: - Main
@@ -72,22 +67,6 @@ struct ContentView: View {
         .animation(.easeInOut(duration: 0.3), value: store.pendingRankUp != nil)
     }
 
-    // MARK: - Boot screen
-    private var bootScreen: some View {
-        ZStack {
-            Color.sysBG.ignoresSafeArea()
-            VStack(spacing: 16) {
-                Text("SYSTEM")
-                    .font(.system(size: 32, weight: .black, design: .monospaced))
-                    .foregroundStyle(Color.sysBlue)
-                    .tracking(8)
-                Text("INITIALIZING...")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(Color.textSecondary)
-                    .tracking(4)
-            }
-        }
-    }
 }
 
 // MARK: - Tab Bar
@@ -184,23 +163,13 @@ struct RankUpOverlay: View {
                             .foregroundStyle(rank.color).tracking(2)
                             .shadow(color: rank.color.opacity(0.8), radius: 8)
  
-                        HStack(spacing: 32) {
-                            VStack(spacing: 4) {
-                                Text("+1")
-                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(Color.sysBlue)
-                                Text("STAT POINT")
-                                    .font(.system(size: 8, design: .monospaced))
-                                    .foregroundStyle(Color.textSecondary)
-                            }
-                            VStack(spacing: 4) {
-                                Text("+50")
-                                    .font(.system(size: 24, weight: .bold, design: .monospaced))
-                                    .foregroundStyle(Color.sysGold)
-                                Text("GOLD")
-                                    .font(.system(size: 8, design: .monospaced))
-                                    .foregroundStyle(Color.textSecondary)
-                            }
+                        VStack(spacing: 4) {
+                            Text("+50")
+                                .font(.system(size: 24, weight: .bold, design: .monospaced))
+                                .foregroundStyle(Color.sysGold)
+                            Text("GOLD")
+                                .font(.system(size: 8, design: .monospaced))
+                                .foregroundStyle(Color.textSecondary)
                         }
  
                         Button {

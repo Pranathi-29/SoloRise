@@ -94,12 +94,22 @@ final class HunterStore {
         case .reading:   hunter.totalReadingSessions = max(0, hunter.totalReadingSessions - 1)
         case .recovery:  hunter.totalRecoveryDays = max(0, hunter.totalRecoveryDays - 1)
         }
+        checkRankDown()
         refreshTick += 1
         save()
     }
 
     func toggleBuff(_ keyPath: WritableKeyPath<DailyLog, Bool>) {
+        let wasOn = todayLog[keyPath: keyPath]
         todayLog[keyPath: keyPath].toggle()
+        let bonus = buffStatBonus(for: keyPath)
+        if !wasOn {
+            apply(reward: bonus)
+            checkRankUp()
+        } else {
+            reverseReward(reward: bonus)
+        }
+        refreshTick += 1
         save()
     }
 
@@ -155,6 +165,24 @@ final class HunterStore {
             hunter.gold += 50
             pendingRankUp = next
         }
+    }
+
+    // MARK: - Rank down check
+    private func checkRankDown() {
+        guard hunter.rank.rawValue > 0,
+              let prev = HunterRank(rawValue: hunter.rank.rawValue - 1) else { return }
+        let minStat = prev.statRequired
+        if hunter.statSTR < minStat || hunter.statINT < minStat ||
+           hunter.statVIT < minStat || hunter.statWIS < minStat {
+            hunter.rank = prev
+            hunter.gold = max(0, hunter.gold - 50)
+        }
+    }
+
+    private func buffStatBonus(for keyPath: WritableKeyPath<DailyLog, Bool>) -> QuestDefinition.Reward {
+        if keyPath == \.supplementsBuff { return .init(type: .vit, value: 1) }
+        if keyPath == \.waterBuff       { return .init(type: .vit, value: 1) }
+        return .init(type: .str, value: 1) // proteinBuff
     }
 
     // MARK: - Private

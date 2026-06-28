@@ -11,13 +11,19 @@ struct DayDetailView: View {
         return f.string(from: date).uppercased()
     }
 
-    private var quests: [(name: String, sfSymbol: String, color: Color, done: Bool)] {[
-        ("Daily Training",        "figure.strengthtraining.traditional", Color.sysRed,    log.workoutDone),
-        ("Nutrition (Protein+Fiber)", "fork.knife",                      Color.sysGreen,  log.nutritionDone),
-        ("Skill Up",              "terminal.fill",                       Color.sysBlue,   log.studyDone),
-        ("Lore & Learning",       "book.fill",                          Color.sysPurple, log.readingDone),
-        ("Recovery Protocol",     "moon.stars.fill",                    Color(hex: "#5B8CFF"), log.recoveryDone),
-    ]}
+    private var quests: [(quest: QuestDefinition, done: Bool)] {
+        QuestDefinition.all.map { q in
+            let done: Bool
+            switch q.questID {
+            case .workout:   done = log.workoutDone
+            case .nutrition: done = log.nutritionDone
+            case .study:     done = log.studyDone
+            case .reading:   done = log.readingDone
+            case .recovery:  done = log.recoveryDone
+            }
+            return (q, done)
+        }
+    }
 
     private var completedCount: Int { quests.filter(\.done).count }
 
@@ -67,9 +73,9 @@ struct DayDetailView: View {
 
                         // Quest list
                         VStack(spacing: 0) {
-                            ForEach(quests, id: \.name) { quest in
-                                questRow(quest)
-                                if quest.name != quests.last?.name {
+                            ForEach(quests.indices, id: \.self) { i in
+                                questRow(quests[i])
+                                if i < quests.count - 1 {
                                     Rectangle()
                                         .fill(Color.sysBorder)
                                         .frame(height: 1)
@@ -142,12 +148,6 @@ struct DayDetailView: View {
                         .foregroundStyle(Color.textSecondary)
                 }
 
-                // XP estimate
-                let xp = [15, 12, 20, 12, 10]
-                let earned = zip(quests, xp).filter(\.0.done).map(\.1).reduce(0, +)
-                Text("+\(earned) EXP earned")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(Color.sysPurple)
             }
 
             Spacer()
@@ -163,28 +163,29 @@ struct DayDetailView: View {
     }
 
     // MARK: - Quest row
-    private func questRow(_ quest: (name: String, sfSymbol: String, color: Color, done: Bool)) -> some View {
-        HStack(spacing: 14) {
+    private func questRow(_ item: (quest: QuestDefinition, done: Bool)) -> some View {
+        let color = item.quest.questID.color
+        return HStack(spacing: 14) {
             ZStack {
                 Rectangle()
-                    .fill(quest.done ? quest.color.opacity(0.1) : Color.sysBorder.opacity(0.2))
+                    .fill(item.done ? color.opacity(0.1) : Color.sysBorder.opacity(0.2))
                     .frame(width: 36, height: 36)
-                Image(systemName: quest.sfSymbol)
+                Image(systemName: item.quest.sfSymbol)
                     .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(quest.done ? quest.color : Color.textDim)
+                    .foregroundStyle(item.done ? color : Color.textDim)
             }
 
-            Text(quest.name)
+            Text(item.quest.name)
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(quest.done ? Color.textPrimary : Color.textDim)
-                .strikethrough(!quest.done, color: Color.textDim.opacity(0.4))
+                .foregroundStyle(item.done ? Color.textPrimary : Color.textDim)
+                .strikethrough(!item.done, color: Color.textDim.opacity(0.4))
 
             Spacer()
 
-            Image(systemName: quest.done ? "checkmark.circle.fill" : "circle")
+            Image(systemName: item.done ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 18))
-                .foregroundStyle(quest.done ? quest.color : Color.textDim)
-                .shadow(color: quest.done ? quest.color.opacity(0.5) : .clear, radius: 4)
+                .foregroundStyle(item.done ? color : Color.textDim)
+                .shadow(color: item.done ? color.opacity(0.5) : .clear, radius: 4)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

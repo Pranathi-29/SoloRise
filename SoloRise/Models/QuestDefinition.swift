@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum QuestID: String, CaseIterable {
     case workout, nutrition, study, reading, recovery
@@ -62,4 +63,28 @@ struct QuestDefinition: Identifiable {
               flavor: "Even the Shadow Monarch rests.",
               rewards: [.init(type: .vit, value: 8), .init(type: .gold, value: 4)]),
     ]
+}
+
+extension QuestID {
+    var color: Color {
+        switch self {
+        case .workout:   return .sysRed
+        case .nutrition: return .sysGreen
+        case .study:     return .sysBlue
+        case .reading:   return .sysPurple
+        case .recovery:  return Color(hex: "#5B8CFF")
+        }
+    }
+}
+
+extension QuestDefinition.RewardType {
+    var color: Color {
+        switch self {
+        case .str:  return .sysRed
+        case .int:  return .sysBlue
+        case .vit:  return .sysGreen
+        case .wis:  return .sysPurple
+        case .gold: return .sysGold
+        }
+    }
 }

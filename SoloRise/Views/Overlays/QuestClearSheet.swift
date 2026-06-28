@@ -63,21 +63,7 @@ struct QuestClearSheet: View, Identifiable {
         .onAppear { Haptic.questComplete() }
     }
 
-    private var questColor: Color {
-        switch quest.questID {
-        case .workout:   return .sysRed
-        case .nutrition: return .sysGreen
-        case .study:     return .sysBlue
-        case .reading:   return .sysPurple
-        case .recovery:  return Color(hex: "#5B8CFF")
-        }
-    }
+    private var questColor: Color { quest.questID.color }
 
-    private func pillColor(_ reward: QuestDefinition.Reward) -> Color {
-        switch reward.type {
-        case .str: return .sysRed;  case .int: return .sysBlue
-        case .vit: return .sysGreen; case .wis: return .sysPurple
-        case .gold: return .sysGold
-        }
-    }
+    private func pillColor(_ reward: QuestDefinition.Reward) -> Color { reward.type.color }
 }
