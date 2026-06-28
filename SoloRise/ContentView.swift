@@ -149,53 +149,41 @@ struct SystemTabBar: View {
     }
 }
 
-// MARK: - Rank Up Overlay
 struct RankUpOverlay: View {
     let rank: HunterRank
     let onDismiss: () -> Void
-
+ 
     @State private var textVisible = false
-    @State private var circleVisible = false
-
+    @State private var imageVisible = false
+ 
     var body: some View {
         ZStack {
-            // Dark backdrop
             Color.black.opacity(0.97).ignoresSafeArea()
-                .background(.ultraThinMaterial)
-
+ 
             VStack(spacing: 0) {
-                // Magic circle — appears first
-                ZStack {
-                    if circleVisible {
-                        MagicCircleView(rank: rank)
-                            .transition(.scale(scale: 0.3).combined(with: .opacity))
-                    }
-
-                    // Rank letter on top of circle
-                    if textVisible {
-                        Text(rank.label)
-                            .font(.system(size: 56, weight: .black, design: .monospaced))
-                            .foregroundStyle(rank.color)
-                            .shadow(color: rank.color, radius: 24)
-                            .transition(.scale(scale: 1.4).combined(with: .opacity))
-                    }
+ 
+                // Character image — appears first
+                if imageVisible {
+                    RankUpCharacterView(rank: rank)
+                        .transition(.scale(scale: 0.85).combined(with: .opacity))
                 }
-                .frame(height: 300)
-
+ 
+                // Text — slides up after
                 if textVisible {
-                    VStack(spacing: 16) {
+                    VStack(spacing: 14) {
                         Text("[ SYSTEM MESSAGE ]")
                             .font(.system(size: 9, design: .monospaced))
                             .foregroundStyle(Color.sysGold).tracking(3)
-
+ 
                         Text("YOU HAVE BEEN PROMOTED")
                             .font(.system(size: 12, weight: .bold, design: .monospaced))
                             .foregroundStyle(Color.textSecondary).tracking(2)
-
+ 
                         Text(rank.title.uppercased())
                             .font(.system(size: 16, weight: .bold, design: .monospaced))
                             .foregroundStyle(rank.color).tracking(2)
-
+                            .shadow(color: rank.color.opacity(0.8), radius: 8)
+ 
                         HStack(spacing: 32) {
                             VStack(spacing: 4) {
                                 Text("+1")
@@ -214,36 +202,35 @@ struct RankUpOverlay: View {
                                     .foregroundStyle(Color.textSecondary)
                             }
                         }
-                        .padding(.top, 4)
-
+ 
                         Button {
                             Haptic.rankUp()
                             onDismiss()
                         } label: {
                             Text("ACKNOWLEDGE")
                                 .font(.system(size: 11, weight: .bold, design: .monospaced))
-                                .tracking(3).foregroundStyle(Color.sysGold)
+                                .tracking(3).foregroundStyle(rank.color)
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
-                                .overlay(Rectangle().stroke(Color.sysGold, lineWidth: 1))
+                                .overlay(Rectangle().stroke(rank.color, lineWidth: 1))
                         }
                         .padding(.horizontal, 40)
-                        .padding(.top, 8)
+                        .padding(.top, 4)
                     }
                     .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding(.top, 12)
                 }
             }
         }
         .onAppear {
-            // Circle appears first
-            withAnimation(.spring(duration: 0.6)) {
-                circleVisible = true
+            withAnimation(.easeOut(duration: 0.4)) {
+                imageVisible = true
             }
-            // Text slides up after
-            withAnimation(.easeOut(duration: 0.5).delay(0.4)) {
+            withAnimation(.easeOut(duration: 0.45).delay(0.35)) {
                 textVisible = true
             }
             Haptic.rankUp()
         }
     }
 }
+

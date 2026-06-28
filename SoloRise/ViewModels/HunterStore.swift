@@ -8,14 +8,13 @@ final class HunterStore {
     var todayLog: DailyLog
     var pendingRankUp: HunterRank? = nil
     var lastClearedQuest: QuestDefinition? = nil
-    var refreshTick: Int = 0  // bump to force view refresh
+    var refreshTick: Int = 0
 
     let modelContext: ModelContext
 
     init(modelContext: ModelContext) {
         self.modelContext = modelContext
 
-        // Load or create hunter
         let hunterDesc = FetchDescriptor<Hunter>()
         if let existing = try? modelContext.fetch(hunterDesc).first {
             self.hunter = existing
@@ -25,7 +24,6 @@ final class HunterStore {
             self.hunter = h
         }
 
-        // Load or create today's log
         let today = Calendar.current.startOfDay(for: .now)
         if let existing = Self.log(for: today, in: modelContext) {
             self.todayLog = existing
@@ -38,7 +36,7 @@ final class HunterStore {
         checkStreak()
     }
 
-    // MARK: - Called when app becomes active (scenePhase check)
+    // MARK: - App active
     func onAppActive() {
         let today = Calendar.current.startOfDay(for: .now)
         guard !Calendar.current.isDate(todayLog.date, inSameDayAs: today) else { return }
@@ -65,11 +63,7 @@ final class HunterStore {
         setDone(id, true)
 
         for reward in def.rewards {
-            if reward.type == .xp {
-                addXP(reward.value + xpBuffBonus(for: def, baseXP: reward.value))
-            } else {
-                apply(reward: reward)
-            }
+            apply(reward: reward)
         }
 
         switch id {
@@ -81,6 +75,7 @@ final class HunterStore {
         }
 
         lastClearedQuest = def
+        checkRankUp()
         save()
         return true
     }
@@ -90,14 +85,7 @@ final class HunterStore {
         let def = QuestDefinition.all.first { $0.questID == id }!
         setDone(id, false)
         for reward in def.rewards {
-            switch reward.type {
-            case .str:  hunter.statSTR = max(10, hunter.statSTR - reward.value)
-            case .int:  hunter.statINT = max(10, hunter.statINT - reward.value)
-            case .vit:  hunter.statVIT = max(10, hunter.statVIT - reward.value)
-            case .wis:  hunter.statWIS = max(10, hunter.statWIS - reward.value)
-            case .gold: hunter.gold = max(0, hunter.gold - reward.value)
-            case .xp:   hunter.xp = max(0, hunter.xp - reward.value)
-            }
+            reverseReward(reward: reward)
         }
         switch id {
         case .workout:   hunter.totalWorkouts = max(0, hunter.totalWorkouts - 1)
@@ -132,7 +120,6 @@ final class HunterStore {
 
     var hasPerfectDay: Bool {
         if todayLog.allComplete { return true }
-
         let descriptor = FetchDescriptor<DailyLog>(
             predicate: #Predicate { log in
                 log.workoutDone && log.nutritionDone && log.studyDone &&
@@ -142,7 +129,6 @@ final class HunterStore {
         return ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
     }
 
-    // MARK: - All past logs (for calendar)
     func recentLogs(days: Int) -> [DailyLog] {
         let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
         var desc = FetchDescriptor<DailyLog>(
@@ -151,6 +137,24 @@ final class HunterStore {
         )
         desc.fetchLimit = days + 1
         return (try? modelContext.fetch(desc)) ?? []
+    }
+
+    // MARK: - Rank up check (stat-driven)
+    private func checkRankUp() {
+        guard let next = hunter.rank.next else { return }
+        let req = hunter.rank.statRequired
+
+        // All stats must meet the per-stat minimum
+        let statsReady = hunter.statSTR >= req &&
+                         hunter.statINT >= req &&
+                         hunter.statVIT >= req &&
+                         hunter.statWIS >= req
+
+        if statsReady {
+            hunter.rank = next
+            hunter.gold += 50
+            pendingRankUp = next
+        }
     }
 
     // MARK: - Private
@@ -171,7 +175,6 @@ final class HunterStore {
         case .vit:  hunter.statVIT += reward.value
         case .wis:  hunter.statWIS += reward.value
         case .gold: hunter.gold += reward.value
-        case .xp:   addXP(reward.value)
         }
     }
 
@@ -182,38 +185,7 @@ final class HunterStore {
         case .vit:  hunter.statVIT = max(10, hunter.statVIT - reward.value)
         case .wis:  hunter.statWIS = max(10, hunter.statWIS - reward.value)
         case .gold: hunter.gold = max(0, hunter.gold - reward.value)
-        case .xp:   hunter.xp = max(0, hunter.xp - reward.value)
         }
-    }
-
-    private func xpBuffBonus(for quest: QuestDefinition, baseXP: Int) -> Int {
-        let rewardTypes = quest.rewards.map(\.type)
-        var bonusRate = 0.0
-
-        if rewardTypes.contains(.vit) {
-            if todayLog.supplementsBuff { bonusRate += 0.05 }
-            if todayLog.waterBuff { bonusRate += 0.08 }
-        }
-        if rewardTypes.contains(.str), todayLog.proteinBuff {
-            bonusRate += 0.06
-        }
-
-        return Int((Double(baseXP) * bonusRate).rounded())
-    }
-
-    private func addXP(_ amount: Int) {
-        hunter.xp += amount
-        var latestRankUp: HunterRank?
-
-        while let next = hunter.rank.next, hunter.xp >= hunter.rank.xpRequired {
-            let required = hunter.rank.xpRequired
-            hunter.xp -= required
-            hunter.rank = next
-            hunter.gold += 50
-            latestRankUp = next
-        }
-
-        pendingRankUp = latestRankUp ?? pendingRankUp
     }
 
     private func checkStreak() {
@@ -221,7 +193,6 @@ final class HunterStore {
         let today = cal.startOfDay(for: .now)
 
         guard let last = hunter.lastActiveDate else {
-            // First ever launch
             hunter.lastActiveDate = today
             hunter.streak = 0
             save()
@@ -232,15 +203,11 @@ final class HunterStore {
         let daysDiff = cal.dateComponents([.day], from: lastDay, to: today).day ?? 0
 
         switch daysDiff {
-        case 0:
-            // Same day — no change
-            break
+        case 0: break
         case 1:
-            // Consecutive day — increment streak
             hunter.streak += 1
             hunter.lastActiveDate = today
         default:
-            // Missed days — reset streak
             hunter.streak = 0
             hunter.lastActiveDate = today
         }
@@ -255,7 +222,6 @@ final class HunterStore {
         let calendar = Calendar.current
         let start = calendar.startOfDay(for: date)
         guard let end = calendar.date(byAdding: .day, value: 1, to: start) else { return nil }
-
         var descriptor = FetchDescriptor<DailyLog>(
             predicate: #Predicate { log in log.date >= start && log.date < end },
             sortBy: [SortDescriptor(\.date)]

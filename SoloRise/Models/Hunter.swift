@@ -1,13 +1,17 @@
 import Foundation
 import SwiftData
 
-// Rank progression: E(0) D(1) C(2) B(3) A(4) S(5)
 enum HunterRank: Int, Codable, CaseIterable {
     case e = 0, d, c, b, a, s
 
     var label: String { ["E","D","C","B","A","S"][rawValue] }
-    var title: String { ["E-Rank Hunter","D-Rank Hunter","C-Rank Hunter","B-Rank Hunter","A-Rank Hunter","National Level Hunter"][rawValue] }
-    var xpRequired: Int { [200, 350, 550, 800, 1200, 99999][rawValue] }
+    var title: String { ["Shadow Fragment","Shadow Scout","Shadow Rogue","Shadow Knight","Shadow Commander","Eclipse General"][rawValue] }
+
+    // Minimum total power (STR+INT+VIT+WIS) required to rank up FROM this rank
+    var powerRequired: Int { [80, 160, 260, 380, 520, 99999][rawValue] }
+
+    // Minimum per-stat required to rank up FROM this rank
+    var statRequired: Int { [20, 40, 65, 95, 130, 9999][rawValue] }
 
     var next: HunterRank? { HunterRank(rawValue: rawValue + 1) }
 }
@@ -16,12 +20,11 @@ enum HunterRank: Int, Codable, CaseIterable {
 final class Hunter {
     var name: String
     var rankRaw: Int
-    var xp: Int
     var gold: Int
     var streak: Int
     var lastActiveDate: Date?
 
-    // Stats
+    // Stats — these now drive everything
     var statSTR: Int
     var statINT: Int
     var statVIT: Int
@@ -39,10 +42,25 @@ final class Hunter {
         set { rankRaw = newValue.rawValue }
     }
 
-    init(name: String = "Sung Jin-Woo") {
+    // Total power = sum of all stats
+    var power: Int { statSTR + statINT + statVIT + statWIS }
+
+    // Progress toward next rank (0.0 to 1.0)
+    var rankProgress: Double {
+        guard let _ = rank.next else { return 1.0 }
+        let required = rank.powerRequired
+        // Base power at start of this rank
+        let previousRequired = rank.rawValue > 0 ? HunterRank(rawValue: rank.rawValue - 1)!.powerRequired : 0
+        let progress = Double(power - previousRequired) / Double(required - previousRequired)
+        return max(0, min(1, progress))
+    }
+
+    // Per-stat requirement for current rank-up
+    var statRequiredForNextRank: Int { rank.statRequired }
+
+    init(name: String = "Shadow Hunter") {
         self.name = name
         self.rankRaw = HunterRank.e.rawValue
-        self.xp = 0
         self.gold = 0
         self.streak = 0
         self.statSTR = 10

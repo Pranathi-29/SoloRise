@@ -77,7 +77,7 @@ struct QuestClearSheet: View, Identifiable {
         switch reward.type {
         case .str: return .sysRed;  case .int: return .sysBlue
         case .vit: return .sysGreen; case .wis: return .sysPurple
-        case .xp:  return .sysBlue;  case .gold: return .sysGold
+        case .gold: return .sysGold
         }
     }
 }

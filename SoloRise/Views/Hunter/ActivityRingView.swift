@@ -112,31 +112,34 @@ struct CalendarSheet: View {
     let done: Int
     let total: Int
 
+    // Real calendar state
+    @State private var displayedMonth: Date = {
+        Calendar.current.startOfDay(for: Date())
+            .apply { Calendar.current.date(from: Calendar.current.dateComponents([.year, .month], from: $0)) ?? $0 }
+    }()
     @State private var logs: [DailyLog] = []
-    @State private var selectedDay: (log: DailyLog, date: Date)? = nil
+    @State private var selectedDay: SelectedDay? = nil
 
-    private let columns = ["M", "Tu", "W", "Th", "F", "Sa", "Su"]
+    private let cal = Calendar.current
+    private let weekdayLabels = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"]
 
     var body: some View {
         ZStack {
             Color.sysBG.ignoresSafeArea()
-
             ScrollView {
                 VStack(spacing: 0) {
-                    // Header
                     sheetHeader
-
-                    // Glow line
                     LinearGradient(colors: [.clear, .sysBlue.opacity(0.5), .clear],
                                    startPoint: .leading, endPoint: .trailing)
                         .frame(height: 1)
-
-                    VStack(spacing: 20) {
+                    VStack(spacing: 14) {
                         statsRow
+                        monthNavigator
+                        weekdayHeader
                         calendarGrid
                         legend
                     }
-                    .padding(20)
+                    .padding(16)
                 }
             }
         }
@@ -144,10 +147,8 @@ struct CalendarSheet: View {
         .presentationDetents([.large])
         .presentationDragIndicator(.visible)
         .onAppear { fetchLogs() }
-        .sheet(item: Binding(
-            get: { selectedDay.map { SelectedDay(log: $0.log, date: $0.date) } },
-            set: { _ in selectedDay = nil }
-        )) { selected in
+        .onChange(of: displayedMonth) { _, _ in fetchLogs() }
+        .sheet(item: $selectedDay) { selected in
             DayDetailView(log: selected.log, date: selected.date)
                 .presentationDetents([.medium, .large])
         }
@@ -161,7 +162,7 @@ struct CalendarSheet: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color.sysBlue)
                     .tracking(3)
-                Text("Last 35 days")
+                Text(monthYearString(displayedMonth))
                     .font(.system(size: 11, design: .rounded))
                     .foregroundStyle(Color.textSecondary)
             }
@@ -211,120 +212,197 @@ struct CalendarSheet: View {
         .padding(.vertical, 14)
     }
 
-    // MARK: - Calendar grid
-    private var calendarGrid: some View {
-        VStack(spacing: 8) {
-            // Day headers
-            HStack(spacing: 4) {
-                ForEach(columns, id: \.self) { d in
-                    Text(d)
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(Color.textSecondary)
-                        .frame(maxWidth: .infinity)
+    // MARK: - Month Navigator
+    private var monthNavigator: some View {
+        HStack {
+            // Prev month button
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    displayedMonth = cal.date(byAdding: .month, value: -1, to: displayedMonth) ?? displayedMonth
                 }
+            } label: {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Color.sysBlue)
+                    .frame(width: 36, height: 36)
+                    .background(Color.sysCard2)
+                    .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            VStack(spacing: 2) {
+                Text(monthString(displayedMonth))
+                    .font(.system(size: 15, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white)
+                Text(yearString(displayedMonth))
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color.textSecondary)
             }
 
-            // 5 weeks
-            let cells = buildCells()
-            ForEach(0..<5, id: \.self) { week in
+            Spacer()
+
+            // Next month button — disabled if we're already at current month
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    let next = cal.date(byAdding: .month, value: 1, to: displayedMonth) ?? displayedMonth
+                    if next <= currentMonthStart {
+                        displayedMonth = next
+                    }
+                }
+            } label: {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(isCurrentMonth ? Color.textDim : Color.sysBlue)
+                    .frame(width: 36, height: 36)
+                    .background(Color.sysCard2)
+                    .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            .disabled(isCurrentMonth)
+        }
+    }
+
+    // MARK: - Weekday header
+    private var weekdayHeader: some View {
+        HStack(spacing: 4) {
+            ForEach(weekdayLabels, id: \.self) { day in
+                Text(day)
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
+    // MARK: - Calendar grid
+    private var calendarGrid: some View {
+        let cells = buildMonthCells()
+        let weeks = stride(from: 0, to: cells.count, by: 7).map { Array(cells[$0..<min($0+7, cells.count)]) }
+
+        return VStack(spacing: 4) {
+            ForEach(weeks.indices, id: \.self) { weekIdx in
                 HStack(spacing: 4) {
-                    ForEach(0..<7, id: \.self) { day in
-                        let cell = cells[week * 7 + day]
+                    ForEach(weeks[weekIdx].indices, id: \.self) { dayIdx in
+                        let cell = weeks[weekIdx][dayIdx]
                         calendarCell(cell)
                     }
                 }
             }
         }
-        .padding(16)
+        .padding(12)
         .background(Color.sysCard2)
         .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
     }
 
-    private func calendarCell(_ cell: CalendarCell) -> some View {
+    private func calendarCell(_ cell: MonthCell) -> some View {
         VStack(spacing: 3) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(cellFill(cell))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 3)
-                        .stroke(cell.isToday ? Color.sysCyan : Color.clear, lineWidth: 2)
-                )
-                .shadow(color: cell.isToday ? Color.sysCyan.opacity(0.6) : .clear, radius: 4)
+            if cell.isEmpty {
+                // Empty padding cell
+                Color.clear
+                    .frame(maxWidth: .infinity)
+                    .aspectRatio(1, contentMode: .fit)
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(cellFill(cell))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 4)
+                                .stroke(cell.isToday ? Color.sysCyan : Color.clear, lineWidth: 2)
+                        )
+
+                    VStack(spacing: 2) {
+                        Text("\(cell.dayNumber)")
+                            .font(.system(size: 11, weight: cell.isToday ? .bold : .regular, design: .monospaced))
+                            .foregroundStyle(cellTextColor(cell))
+
+                        // Quest dots row
+                        if let log = cell.log, log.completedCount > 0 {
+                            HStack(spacing: 1.5) {
+                                questDot(done: log.workoutDone, color: .sysRed)
+                                questDot(done: log.nutritionDone, color: .sysGreen)
+                                questDot(done: log.studyDone, color: .sysBlue)
+                                questDot(done: log.readingDone, color: .sysPurple)
+                                questDot(done: log.recoveryDone, color: Color(hex: "#5B8CFF"))
+                            }
+                        }
+                    }
+                }
                 .frame(maxWidth: .infinity)
                 .aspectRatio(1, contentMode: .fit)
+                .contentShape(Rectangle())
                 .onTapGesture {
-                    if let log = cell.log {
-                        selectedDay = (log, cell.date)
-                    }
-                }
-                .overlay(alignment: .topTrailing) {
-                    if cell.hasData {
-                        Circle()
-                            .fill(Color.sysCyan.opacity(0.6))
-                            .frame(width: 4, height: 4)
-                            .padding(2)
-                    }
-                }
-
-            // Completion dots for days with partial progress
-            if cell.hasData && cell.completionRate < 1.0 {
-                HStack(spacing: 1) {
-                    ForEach(0..<5, id: \.self) { i in
-                        Circle()
-                            .fill(Double(i) / 5.0 < cell.completionRate ? Color.sysBlue : Color.sysBorder)
-                            .frame(width: 3, height: 3)
+                    if let log = cell.log, !cell.isFuture {
+                        selectedDay = SelectedDay(log: log, date: cell.date)
                     }
                 }
             }
         }
     }
 
-    private func cellFill(_ cell: CalendarCell) -> Color {
-        if cell.isFuture { return Color.sysBorder.opacity(0.2) }
-        if !cell.hasData { return Color.sysBorder.opacity(0.4) }
-        switch cell.completionRate {
-        case 1.0:    return Color.sysBlue
-        case 0.8...: return Color.sysBlue.opacity(0.75)
-        case 0.6...: return Color.sysBlue.opacity(0.55)
-        case 0.4...: return Color.sysBlue.opacity(0.35)
-        default:     return Color.sysBlue.opacity(0.2)
+    private func questDot(done: Bool, color: Color) -> some View {
+        Circle()
+            .fill(done ? color : Color.sysBorder.opacity(0.4))
+            .frame(width: 4, height: 4)
+    }
+
+    private func cellFill(_ cell: MonthCell) -> Color {
+        if cell.isFuture || cell.isEmpty { return Color.sysBorder.opacity(0.1) }
+        guard let log = cell.log, log.completedCount > 0 else {
+            return Color.sysBorder.opacity(0.25)
         }
+        if log.allComplete { return Color.sysBlue.opacity(0.35) }
+        let ratio = Double(log.completedCount) / 5.0
+        return Color.sysBlue.opacity(0.12 + ratio * 0.2)
+    }
+
+    private func cellTextColor(_ cell: MonthCell) -> Color {
+        if cell.isFuture { return Color.textDim }
+        if cell.isToday { return Color.sysCyan }
+        if let log = cell.log, log.completedCount > 0 { return .white }
+        return Color.textSecondary
     }
 
     // MARK: - Legend
     private var legend: some View {
-        HStack(spacing: 16) {
-            Text("LESS")
-                .font(.system(size: 8, design: .monospaced))
-                .foregroundStyle(Color.textDim)
-            HStack(spacing: 4) {
-                ForEach([0.0, 0.25, 0.5, 0.75, 1.0], id: \.self) { val in
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(val == 0 ? Color.sysBorder.opacity(0.4) : Color.sysBlue.opacity(0.2 + val * 0.8))
-                        .frame(width: 14, height: 14)
+        VStack(spacing: 8) {
+            // Quest color key
+            HStack(spacing: 12) {
+                ForEach([
+                    ("WRK", Color.sysRed),
+                    ("NUT", Color.sysGreen),
+                    ("STU", Color.sysBlue),
+                    ("LRN", Color.sysPurple),
+                    ("REC", Color(hex: "#5B8CFF"))
+                ], id: \.0) { item in
+                    HStack(spacing: 4) {
+                        Circle().fill(item.1).frame(width: 6, height: 6)
+                        Text(item.0)
+                            .font(.system(size: 8, design: .monospaced))
+                            .foregroundStyle(Color.textSecondary)
+                    }
                 }
-            }
-            Text("MORE")
-                .font(.system(size: 8, design: .monospaced))
-                .foregroundStyle(Color.textDim)
-            Spacer()
-            HStack(spacing: 6) {
-                RoundedRectangle(cornerRadius: 2)
-                    .stroke(Color.sysCyan, lineWidth: 1.5)
-                    .frame(width: 14, height: 14)
-                Text("TODAY")
-                    .font(.system(size: 8, design: .monospaced))
-                    .foregroundStyle(Color.textDim)
+                Spacer()
+                HStack(spacing: 6) {
+                    RoundedRectangle(cornerRadius: 2)
+                        .stroke(Color.sysCyan, lineWidth: 1.5)
+                        .frame(width: 14, height: 14)
+                    Text("TODAY")
+                        .font(.system(size: 8, design: .monospaced))
+                        .foregroundStyle(Color.textDim)
+                }
             }
         }
     }
 
-    // MARK: - Data
-    struct CalendarCell {
-        var isToday: Bool
-        var isFuture: Bool
-        var hasData: Bool
-        var completionRate: Double
+    // MARK: - Month cell builder
+    struct MonthCell {
+        var isEmpty: Bool = false
+        var dayNumber: Int = 0
         var date: Date = .now
+        var isToday: Bool = false
+        var isFuture: Bool = false
         var log: DailyLog? = nil
     }
 
@@ -334,44 +412,99 @@ struct CalendarSheet: View {
         let date: Date
     }
 
-    private func buildCells() -> [CalendarCell] {
-        let cal = Calendar.current
+    private func buildMonthCells() -> [MonthCell] {
         let today = cal.startOfDay(for: Date())
         let logMap = Dictionary(grouping: logs) { cal.startOfDay(for: $0.date) }
-            .mapValues { dayLogs in
-                dayLogs.max(by: { $0.completedCount < $1.completedCount })!
-            }
+            .mapValues { $0.max(by: { $0.completedCount < $1.completedCount })! }
 
-        var cells: [CalendarCell] = []
-        for offset in stride(from: -34, through: 0, by: 1) {
-            guard let date = cal.date(byAdding: .day, value: offset, to: today) else { continue }
+        // First day of displayed month
+        guard let firstOfMonth = cal.date(from: cal.dateComponents([.year, .month], from: displayedMonth)),
+              let range = cal.range(of: .day, in: .month, for: firstOfMonth) else {
+            return []
+        }
+
+        // Weekday offset (0 = Sunday)
+        let firstWeekday = cal.component(.weekday, from: firstOfMonth) - 1 // 0-indexed
+
+        var cells: [MonthCell] = []
+
+        // Leading empty cells
+        for _ in 0..<firstWeekday {
+            cells.append(MonthCell(isEmpty: true))
+        }
+
+        // Actual day cells
+        for day in range {
+            guard let date = cal.date(byAdding: .day, value: day - 1, to: firstOfMonth) else { continue }
             let isToday = cal.isDateInToday(date)
+            let isFuture = date > today
+            let log = logMap[date]
+            cells.append(MonthCell(
+                isEmpty: false,
+                dayNumber: day,
+                date: date,
+                isToday: isToday,
+                isFuture: isFuture,
+                log: log
+            ))
+        }
 
-            if let log = logMap[date] {
-                cells.append(CalendarCell(
-                    isToday: isToday, isFuture: false,
-                    hasData: log.completedCount > 0,
-                    completionRate: Double(log.completedCount) / 5.0
-                ))
-            } else {
-                cells.append(CalendarCell(isToday: isToday, isFuture: false,
-                                          hasData: false, completionRate: 0))
+        // Trailing empty cells to complete last row
+        let remainder = cells.count % 7
+        if remainder != 0 {
+            for _ in 0..<(7 - remainder) {
+                cells.append(MonthCell(isEmpty: true))
             }
         }
-        while cells.count < 35 {
-            cells.insert(CalendarCell(isToday: false, isFuture: true,
-                                      hasData: false, completionRate: 0), at: 0)
-        }
-        return Array(cells.suffix(35))
+
+        return cells
     }
 
+    // MARK: - Data
     private func fetchLogs() {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -35, to: .now) ?? .now
+        guard let firstOfMonth = cal.date(from: cal.dateComponents([.year, .month], from: displayedMonth)),
+              let lastOfMonth = cal.date(byAdding: DateComponents(month: 1, day: -1), to: firstOfMonth) else {
+            return
+        }
         var desc = FetchDescriptor<DailyLog>(
-            predicate: #Predicate { log in log.date >= cutoff },
+            predicate: #Predicate { log in log.date >= firstOfMonth && log.date <= lastOfMonth },
             sortBy: [SortDescriptor(\.date)]
         )
-        desc.fetchLimit = 36
+        desc.fetchLimit = 32
         logs = (try? modelContext.fetch(desc)) ?? []
+    }
+
+    // MARK: - Helpers
+    private var currentMonthStart: Date {
+        cal.date(from: cal.dateComponents([.year, .month], from: Date())) ?? Date()
+    }
+
+    private var isCurrentMonth: Bool {
+        cal.isDate(displayedMonth, equalTo: currentMonthStart, toGranularity: .month)
+    }
+
+    private func monthString(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM"
+        return f.string(from: date).uppercased()
+    }
+
+    private func yearString(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy"
+        return f.string(from: date)
+    }
+
+    private func monthYearString(_ date: Date) -> String {
+        let f = DateFormatter()
+        f.dateFormat = "MMMM yyyy"
+        return f.string(from: date)
+    }
+}
+
+// MARK: - Date apply helper
+extension Date {
+    func apply(_ transform: (Date) -> Date) -> Date {
+        transform(self)
     }
 }

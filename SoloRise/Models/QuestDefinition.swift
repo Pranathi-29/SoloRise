@@ -7,7 +7,7 @@ enum QuestID: String, CaseIterable {
 struct QuestDefinition: Identifiable {
     var id: String { questID.rawValue }
     let questID: QuestID
-    let sfSymbol: String       // SF Symbol instead of emoji
+    let sfSymbol: String
     let name: String
     let flavor: String
     let rewards: [Reward]
@@ -19,14 +19,13 @@ struct QuestDefinition: Identifiable {
     }
 
     enum RewardType: Equatable {
-        case str, int, vit, wis, xp, gold
+        case str, int, vit, wis, gold
         var label: String {
             switch self {
             case .str:  return "STR"
             case .int:  return "INT"
             case .vit:  return "VIT"
             case .wis:  return "WIS"
-            case .xp:   return "EXP"
             case .gold: return "Gold"
             }
         }
@@ -37,26 +36,30 @@ struct QuestDefinition: Identifiable {
               sfSymbol: "figure.strengthtraining.traditional",
               name: "Daily Training",
               flavor: "The body is a weapon. Sharpen it.",
-              rewards: [.init(type: .str, value: 10), .init(type: .xp, value: 15), .init(type: .gold, value: 5)]),
+              rewards: [.init(type: .str, value: 10), .init(type: .gold, value: 5)]),
+
         .init(questID: .nutrition,
               sfSymbol: "fork.knife",
               name: "Nutrition (Protein+Fiber)",
               flavor: "Fuel the machine.",
-              rewards: [.init(type: .vit, value: 8), .init(type: .xp, value: 12), .init(type: .gold, value: 5)]),
+              rewards: [.init(type: .vit, value: 8), .init(type: .gold, value: 5)]),
+
         .init(questID: .study,
               sfSymbol: "terminal.fill",
               name: "Skill Up",
               flavor: "Knowledge is the mage's blade.",
-              rewards: [.init(type: .int, value: 12), .init(type: .xp, value: 20), .init(type: .gold, value: 8)]),
+              rewards: [.init(type: .int, value: 12), .init(type: .gold, value: 8)]),
+
         .init(questID: .reading,
               sfSymbol: "book.fill",
               name: "Lore & Learning",
               flavor: "Every page is a level gained.",
-              rewards: [.init(type: .wis, value: 10), .init(type: .xp, value: 12), .init(type: .gold, value: 5)]),
+              rewards: [.init(type: .wis, value: 10), .init(type: .gold, value: 5)]),
+
         .init(questID: .recovery,
               sfSymbol: "moon.stars.fill",
               name: "Recovery Protocol",
               flavor: "Even the Shadow Monarch rests.",
-              rewards: [.init(type: .vit, value: 8), .init(type: .xp, value: 10), .init(type: .gold, value: 4)]),
+              rewards: [.init(type: .vit, value: 8), .init(type: .gold, value: 4)]),
     ]
 }
