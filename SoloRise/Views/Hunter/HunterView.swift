@@ -6,19 +6,18 @@ struct HunterView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let cardH = geo.size.height * 0.38
+            let cardH = geo.size.height * 0.30
 
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
                     statusWindow
                     characterCard(imageHeight: cardH)
-                    promotionRequirements
-                    statsGrid
+                    statSection
                     bottomRow
                     activityRing
                 }
                 .padding(.horizontal, 14)
-                .padding(.top, 14)
+                .padding(.top, 10)
                 .padding(.bottom, 14)
             }
             .scrollContentBackground(.hidden)
@@ -182,8 +181,8 @@ struct HunterView: View {
         .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
     }
 
-    // MARK: - Promotion Requirements
-    private var promotionRequirements: some View {
+    // MARK: - Stats & Promotion (merged)
+    private var statSection: some View {
         let req = store.hunter.rank.statRequired
         let strOK = store.hunter.statSTR >= req
         let intOK = store.hunter.statINT >= req
@@ -193,7 +192,7 @@ struct HunterView: View {
 
         return VStack(spacing: 0) {
             HStack {
-                Text("PROMOTION REQUIREMENTS")
+                Text("STATS & PROMOTION")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .tracking(2)
                     .foregroundStyle(allOK ? Color.sysGold : Color.sysBlue)
@@ -208,18 +207,19 @@ struct HunterView: View {
             .background(Color.sysPanel)
 
             Rectangle()
-                .fill(LinearGradient(colors: [.clear, (allOK ? Color.sysGold : Color.sysBlue).opacity(0.5), .clear],
-                                     startPoint: .leading, endPoint: .trailing))
+                .fill(LinearGradient(
+                    colors: [.clear, (allOK ? Color.sysGold : Color.sysBlue).opacity(0.5), .clear],
+                    startPoint: .leading, endPoint: .trailing))
                 .frame(height: 1)
 
             HStack(spacing: 0) {
-                statReqCell(label: "STR", value: store.hunter.statSTR, req: req, color: .sysRed, met: strOK)
+                statCell(label: "STR", value: store.hunter.statSTR, req: req, color: .sysRed, met: strOK)
                 Rectangle().fill(Color.sysBorder).frame(width: 1)
-                statReqCell(label: "INT", value: store.hunter.statINT, req: req, color: .sysBlue, met: intOK)
+                statCell(label: "INT", value: store.hunter.statINT, req: req, color: .sysBlue, met: intOK)
                 Rectangle().fill(Color.sysBorder).frame(width: 1)
-                statReqCell(label: "VIT", value: store.hunter.statVIT, req: req, color: .sysGreen, met: vitOK)
+                statCell(label: "VIT", value: store.hunter.statVIT, req: req, color: .sysGreen, met: vitOK)
                 Rectangle().fill(Color.sysBorder).frame(width: 1)
-                statReqCell(label: "WIS", value: store.hunter.statWIS, req: req, color: .sysPurple, met: wisOK)
+                statCell(label: "WIS", value: store.hunter.statWIS, req: req, color: .sysPurple, met: wisOK)
             }
             .background(Color.sysCard2)
         }
@@ -227,7 +227,7 @@ struct HunterView: View {
         .id(store.refreshTick)
     }
 
-    private func statReqCell(label: String, value: Int, req: Int, color: Color, met: Bool) -> some View {
+    private func statCell(label: String, value: Int, req: Int, color: Color, met: Bool) -> some View {
         VStack(spacing: 3) {
             Text(label)
                 .font(.system(size: 8, weight: .bold, design: .monospaced))
@@ -235,6 +235,16 @@ struct HunterView: View {
             Text("\(value)")
                 .font(.system(size: 14, weight: .bold, design: .monospaced))
                 .foregroundStyle(met ? .white : Color.textSecondary)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Rectangle().fill(Color.sysBorder)
+                    Rectangle()
+                        .fill(color.opacity(met ? 1.0 : 0.7))
+                        .frame(width: geo.size.width * min(CGFloat(value) / CGFloat(req), 1.0))
+                }
+            }
+            .frame(height: 2)
+            .padding(.horizontal, 4)
             HStack(spacing: 2) {
                 Image(systemName: met ? "checkmark" : "arrow.up")
                     .font(.system(size: 7, weight: .bold))
@@ -246,21 +256,6 @@ struct HunterView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-    }
-
-    // MARK: - Stats Grid
-    private var statsGrid: some View {
-        VStack(spacing: 6) {
-            HStack(spacing: 6) {
-                StatBar(label: "STR", value: store.hunter.statSTR, color: .sysRed)
-                StatBar(label: "INT", value: store.hunter.statINT, color: .sysBlue)
-            }
-            HStack(spacing: 6) {
-                StatBar(label: "VIT", value: store.hunter.statVIT, color: .sysGreen)
-                StatBar(label: "WIS", value: store.hunter.statWIS, color: .sysPurple)
-            }
-        }
-        .id(store.refreshTick)
     }
 
     // MARK: - Gold + Streak
