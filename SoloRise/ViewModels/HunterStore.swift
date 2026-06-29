@@ -180,9 +180,9 @@ final class HunterStore {
     }
 
     private func buffStatBonus(for keyPath: WritableKeyPath<DailyLog, Bool>) -> QuestDefinition.Reward {
-        if keyPath == \.supplementsBuff { return .init(type: .vit, value: 1) }
-        if keyPath == \.waterBuff       { return .init(type: .vit, value: 1) }
-        return .init(type: .str, value: 1) // proteinBuff
+        if keyPath == \.waterBuff       { return .init(type: .vit, value: 1) } // Hydration
+        if keyPath == \.supplementsBuff { return .init(type: .wis, value: 1) } // Supplements
+        return .init(type: .str, value: 1) // Clean Eating (proteinBuff)
     }
 
     // MARK: - Private

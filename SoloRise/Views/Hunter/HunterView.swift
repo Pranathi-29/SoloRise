@@ -6,7 +6,7 @@ struct HunterView: View {
 
     var body: some View {
         GeometryReader { geo in
-            let cardH = geo.size.height * 0.30
+            let cardH = geo.size.height * 0.36
 
             ScrollView {
                 VStack(spacing: 8) {

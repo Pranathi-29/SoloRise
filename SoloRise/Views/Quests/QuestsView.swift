@@ -5,15 +5,21 @@ struct QuestsView: View {
     @State private var showReward: QuestDefinition? = nil
 
     private let buffs: [(label: String, effect: String, sfSymbol: String, color: Color, keyPath: WritableKeyPath<DailyLog, Bool>)] = [
-        ("Supplements taken",  "+1 VIT", "pills.fill",          .sysPurple, \.supplementsBuff),
-        ("Water goal reached", "+1 VIT", "drop.fill",           .sysBlue,   \.waterBuff),
-        ("No junk food",       "+1 STR", "xmark.circle.fill",   .sysRed,    \.proteinBuff),
+        ("Hydration",    "+1 VIT", "drop.fill",  .sysGreen,  \.waterBuff),
+        ("Supplements",  "+1 WIS", "pills.fill", .sysPurple, \.supplementsBuff),
+        ("Clean Eating", "+1 STR", "leaf.fill",  .sysRed,    \.proteinBuff),
     ]
 
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
-                progressBar
+                if allCleared {
+                    allClearBanner
+                        .transition(.scale(scale: 0.95).combined(with: .opacity))
+                } else {
+                    progressBar
+                        .transition(.opacity)
+                }
                 SysSection(title: "DAILY QUESTS")
                 ForEach(QuestDefinition.all) { quest in
                     QuestRow(
@@ -29,25 +35,68 @@ struct QuestsView: View {
                         }
                     )
                 }
-                SysSection(title: "PASSIVE BUFFS").padding(.top, 4)
-                ForEach(buffs, id: \.label) { buff in
-                    BuffRow(
-                        sfSymbol: buff.sfSymbol,
-                        color: buff.color,
-                        name: buff.label,
-                        effect: buff.effect,
-                        isOn: store.todayLog[keyPath: buff.keyPath]
-                    ) {
-                        store.toggleBuff(buff.keyPath)
-                        Haptic.tap()
+                SysSection(title: "BONUS QUESTS").padding(.top, 4)
+                HStack(spacing: 8) {
+                    ForEach(buffs, id: \.label) { buff in
+                        BuffBadge(
+                            sfSymbol: buff.sfSymbol,
+                            color: buff.color,
+                            name: buff.label,
+                            effect: buff.effect,
+                            isOn: store.todayLog[keyPath: buff.keyPath]
+                        ) {
+                            store.toggleBuff(buff.keyPath)
+                            Haptic.tap()
+                        }
                     }
                 }
             }
             .padding(14)
+            .animation(.easeOut(duration: 0.35), value: allCleared)
         }
         .background(Color.clear)
         .sheet(item: $showReward) { q in
             QuestClearSheet(quest: q) { showReward = nil }
+        }
+    }
+
+    private var allCleared: Bool {
+        store.questProgress.done == store.questProgress.total
+    }
+
+    // MARK: - All-clear banner
+    private var allClearBanner: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Rectangle()
+                    .fill(Color.sysGreen.opacity(0.12))
+                    .overlay(Rectangle().stroke(Color.sysGreen.opacity(0.5), lineWidth: 1))
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 22, weight: .medium))
+                    .foregroundStyle(Color.sysGreen)
+                    .shadow(color: Color.sysGreen.opacity(0.6), radius: 8)
+            }
+            .frame(width: 48, height: 48)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("ALL QUESTS CLEARED")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.sysGreen)
+                    .tracking(1.5)
+                Text("Daily objectives complete. Rest, Hunter.")
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Color.textSecondary)
+            }
+            Spacer()
+            Text("\(store.questProgress.done)/\(store.questProgress.total)")
+                .font(.system(size: 16, weight: .black, design: .monospaced))
+                .foregroundStyle(Color.sysGreen)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .background(Color.sysGreen.opacity(0.06))
+        .overlay(Rectangle().stroke(Color.sysGreen.opacity(0.4), lineWidth: 1))
+        .overlay(alignment: .leading) {
+            Rectangle().fill(Color.sysGreen).frame(width: 3)
         }
     }
 
@@ -147,8 +196,8 @@ struct QuestRow: View {
     private func pillColor(_ reward: QuestDefinition.Reward) -> Color { reward.type.color }
 }
 
-// MARK: - Buff Row
-struct BuffRow: View {
+// MARK: - Buff Badge
+struct BuffBadge: View {
     let sfSymbol: String
     let color: Color
     let name: String
@@ -157,35 +206,39 @@ struct BuffRow: View {
     let onToggle: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        VStack(spacing: 8) {
             ZStack {
-                Rectangle().fill(color.opacity(0.12)).frame(width: 36, height: 36)
+                Rectangle()
+                    .fill(isOn ? color.opacity(0.15) : Color.sysBorder.opacity(0.15))
+                    .frame(width: 40, height: 40)
                 Image(systemName: sfSymbol)
-                    .font(.system(size: 15, weight: .medium))
-                    .foregroundStyle(isOn ? color : Color.textSecondary)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(isOn ? color : Color.textDim)
+                    .shadow(color: isOn ? color.opacity(0.6) : .clear, radius: 6)
             }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(name)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(isOn ? color : Color.textPrimary)
-                Text(effect)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(isOn ? color.opacity(0.7) : Color.textSecondary)
-            }
-            Spacer()
-            ZStack(alignment: isOn ? .trailing : .leading) {
-                Capsule().fill(isOn ? color.opacity(0.3) : Color.sysBorder2)
-                    .frame(width: 40, height: 24)
-                Circle().fill(isOn ? color : Color.textDim)
-                    .frame(width: 20, height: 20)
-                    .padding(.horizontal, 2)
-            }
-            .animation(.easeOut(duration: 0.2), value: isOn)
+
+            Text(name)
+                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .foregroundStyle(isOn ? Color.textPrimary : Color.textSecondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+
+            Text(effect)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(isOn ? color : Color.textDim)
+                .tracking(1)
         }
-        .padding(.horizontal, 14).padding(.vertical, 10)
-        .background(isOn ? color.opacity(0.05) : Color.sysCard2)
-        .overlay(Rectangle().stroke(isOn ? color.opacity(0.3) : Color.sysBorder, lineWidth: 1))
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(isOn ? color.opacity(0.06) : Color.sysCard2)
+        .overlay(Rectangle().stroke(isOn ? color.opacity(0.4) : Color.sysBorder, lineWidth: 1))
+        .overlay(alignment: .top) {
+            if isOn {
+                Rectangle().fill(color).frame(height: 2)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture { onToggle() }
+        .animation(.easeOut(duration: 0.2), value: isOn)
     }
 }

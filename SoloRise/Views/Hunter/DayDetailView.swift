@@ -194,19 +194,19 @@ struct DayDetailView: View {
     // MARK: - Buffs card
     private var buffsCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("PASSIVE BUFFS ACTIVE")
+            Text("BONUS QUESTS COMPLETE")
                 .font(.system(size: 8, weight: .bold, design: .monospaced))
                 .foregroundStyle(Color.sysGold)
                 .tracking(2)
 
-            if log.supplementsBuff {
-                buffRow(icon: "pills.fill", name: "Supplements taken", color: .sysPurple)
-            }
             if log.waterBuff {
-                buffRow(icon: "drop.fill", name: "Water goal reached", color: .sysBlue)
+                buffRow(icon: "drop.fill", name: "Hydration", color: .sysGreen)
+            }
+            if log.supplementsBuff {
+                buffRow(icon: "pills.fill", name: "Supplements", color: .sysPurple)
             }
             if log.proteinBuff {
-                buffRow(icon: "xmark.circle.fill", name: "No junk food", color: .sysRed)
+                buffRow(icon: "leaf.fill", name: "Clean Eating", color: .sysRed)
             }
         }
         .padding(14)

@@ -34,32 +34,32 @@ struct QuestDefinition: Identifiable {
 
     static let all: [QuestDefinition] = [
         .init(questID: .workout,
-              sfSymbol: "figure.strengthtraining.traditional",
-              name: "Daily Training",
+              sfSymbol: "dumbbell.fill",
+              name: "Physical Training",
               flavor: "The body is a weapon. Sharpen it.",
               rewards: [.init(type: .str, value: 10), .init(type: .gold, value: 5)]),
 
         .init(questID: .nutrition,
-              sfSymbol: "fork.knife",
-              name: "Nutrition (Protein+Fiber)",
+              sfSymbol: "carrot.fill",
+              name: "Nutrition",
               flavor: "Fuel the machine.",
               rewards: [.init(type: .vit, value: 8), .init(type: .gold, value: 5)]),
 
         .init(questID: .study,
-              sfSymbol: "terminal.fill",
-              name: "Skill Up",
-              flavor: "Knowledge is the mage's blade.",
+              sfSymbol: "chart.line.uptrend.xyaxis",
+              name: "Career Growth",
+              flavor: "Sharpen the blade that carves your future.",
               rewards: [.init(type: .int, value: 12), .init(type: .gold, value: 8)]),
 
         .init(questID: .reading,
-              sfSymbol: "book.fill",
-              name: "Lore & Learning",
+              sfSymbol: "brain.head.profile",
+              name: "Mind Training",
               flavor: "Every page is a level gained.",
               rewards: [.init(type: .wis, value: 10), .init(type: .gold, value: 5)]),
 
         .init(questID: .recovery,
               sfSymbol: "moon.stars.fill",
-              name: "Recovery Protocol",
+              name: "Recovery",
               flavor: "Even the Shadow Monarch rests.",
               rewards: [.init(type: .vit, value: 8), .init(type: .gold, value: 4)]),
     ]
