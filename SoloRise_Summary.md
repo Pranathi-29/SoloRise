@@ -22,9 +22,9 @@
 ```
 SoloRise/
 ├── Models/
-│   ├── Hunter.swift          # Player model — stats, rank, gold, streak
-│   ├── DailyLog.swift        # Per-day quest completion flags + buffs
-│   └── QuestDefinition.swift # Quest metadata, rewards
+│   ├── Hunter.swift          # Player model — stats, rank, gold, streak, streakShields
+│   ├── DailyLog.swift        # Per-day quest completion flags + bonus quests + shieldEarned
+│   └── QuestDefinition.swift # Quest metadata, rewards, quest/reward colors
 ├── ViewModels/
 │   └── HunterStore.swift     # All game logic — quest completion, rank-up, streak
 ├── Views/
@@ -36,11 +36,11 @@ SoloRise/
 │   │   ├── EditNameView.swift        # Hunter name editor
 │   │   └── MagicCircleView.swift     # (legacy — can be deleted)
 │   ├── Quests/
-│   │   └── QuestsView.swift          # Daily quest list + passive buffs
+│   │   └── QuestsView.swift          # Daily quest list + all-clear banner + bonus quests/shields
 │   ├── Gates/
-│   │   └── GatesView.swift           # Gate registry + shadow army
+│   │   └── GatesView.swift           # Stat-gated gate registry + shadow army
 │   ├── Feats/
-│   │   └── FeatsView.swift           # Boss raids + milestones
+│   │   └── FeatsView.swift           # Stat/rank bosses (BossDefinition) + gold-paying, small milestones
 │   ├── Overlays/
 │   │   └── QuestClearSheet.swift     # Quest completion sheet
 │   ├── Components/
@@ -63,8 +63,8 @@ SoloRise/
 | Tab | What it does |
 |-----|-------------|
 | **Hunter** | Character profile, stats, power bar, promotion requirements, activity ring |
-| **Quests** | Daily quest checklist + passive buff toggles |
-| **Gates** | Unlockable dungeons and shadow army (progress-gated) |
+| **Quests** | Daily quest checklist + all-clear banner + bonus quests (streak shields) |
+| **Gates** | Stat-gated dungeons and shadow army |
 | **Feats** | Boss raids and milestone achievements |
 
 ---
@@ -79,31 +79,59 @@ Complete quest → Stat increases → Power bar fills
 ### Quests → Stats mapping
 | Quest | Stat | Per completion |
 |-------|------|----------------|
-| Daily Training (workout) | STR | +10 |
-| Nutrition (protein + fiber) | VIT | +8 |
-| Skill Up (study/coding) | INT | +12 |
-| Lore & Learning (reading) | WIS | +10 |
-| Recovery Protocol (sleep/rest) | VIT | +8 |
+| Physical Training (exercise) | STR | +1 |
+| Nutrition | VIT | +1 |
+| Career Growth (job prep) | INT | +1 |
+| Mind Training (reading/learning) | WIS | +1 |
+| Recovery (sleep/rest) | VIT | +1 |
+
+Each quest also grants Gold (4–8). Stats start at 10. Quests give **+1 to their stat**
+per completion, so a stat is effectively a count of reps done (e.g. STR 250 ≈ 250 training
+sessions). VIT is fed by two quests (Nutrition + Recovery) so it advances fastest and is
+rarely the rank bottleneck; STR / INT / WIS each have a single quest and set the real pace
+(Career Growth / INT tends to be the true bottleneck).
 
 ### Rank Progression (stat-driven, XP removed)
-| Rank | Title | Each stat must reach |
-|------|-------|----------------------|
-| E | Shadow Fragment | — (starting rank) |
-| E → D | Shadow Scout | 20 each |
-| D → C | Shadow Rogue | 40 each |
-| C → B | Shadow Knight | 65 each |
-| B → A | Shadow Commander | 95 each |
-| A → S | Eclipse General | 130 each |
+Tuned so E→S takes **~1 year at ~80% consistency** (5–6 days/week), with an escalating curve.
 
-Power bar = `STR + INT + VIT + WIS` displayed in the Hunter status window.  
-Rank up triggers automatically when **all 4 stats** meet the threshold.
+| Rank | Title | Each stat must reach | ~Time at 80% |
+|------|-------|----------------------|--------------|
+| E | Shadow Fragment | — (starting rank, stats start at 10) | — |
+| E → D | Shadow Scout | 25 each | ~3 wk |
+| D → C | Shadow Rogue | 55 each | ~5 wk |
+| C → B | Shadow Knight | 110 each | ~10 wk |
+| B → A | Shadow Commander | 190 each | ~14 wk |
+| A → S | Eclipse General | 300 each | ~20 wk |
 
-### Passive Buffs (Quests tab)
-| Buff | Effect |
-|------|--------|
-| Supplements taken | +5% VIT EXP bonus (legacy — currently no-op, see improvements) |
-| Water goal reached | +8% VIT EXP bonus (legacy — currently no-op) |
-| No junk food | +6% STR EXP bonus (legacy — currently no-op) |
+Rank up triggers automatically when **all 4 stats** meet the threshold (enforces balanced
+habits). The **power bar tracks the limiting (slowest) stat**, so it fills exactly in step
+with the all-4 gate. `power` (STR+INT+VIT+WIS) is still shown as a flavor number.
+
+### Bonus Quests → Streak Shields (Quests tab)
+Bonus quests no longer affect stats. Completing **all 3 in a day banks 1 Streak Shield**
+(max 3). A missed day auto-spends a Shield to **hold** your streak (1 per missed day); if the
+gap can't be covered, the streak resets.
+
+| Bonus quest | Tracks |
+|-------------|--------|
+| Hydration | Hit your water goal |
+| Supplements | Took B12 / Mg |
+| Clean Eating | No junk that day |
+
+### Gates (Gates tab)
+Each gate is **stat-gated** and themed to a stat; two states only (Locked → CLEARED, no
+"ENTERED"). Forest Dungeon VIT 25 · Iron Keep STR 40 · Scholar Vault INT 40 · Frost Citadel
+WIS 65 · Inferno Rift STR 95 · Shadow Fortress WIS 130 · Monarchs Domain INT 130 · Ashborn
+Throne Power 520. Shadow Army unlocks on the same stat thresholds (40 / 95 / Power 520).
+
+### Feats (Feats tab)
+Two tiers, defined in `FeatsView.swift`:
+- **Bosses** = major stat/rank endgame goals (`BossDefinition`), **pay gold once** when first
+  slain (tracked by `Hunter.bossClaimMask`, awarded in `HunterStore.checkBosses()`):
+  Iron Troll → STR 190 (250g) · Procrastination Dragon → INT 190 (250g) · Chaos Monarch →
+  Power 1200 (1000g).
+- **Milestones** = small early wins, shown in **gold** when earned: first quest, first perfect
+  day, 3/7/30-day streaks, D/C-Rank, 100 gold, cleared first gate (VIT 25), banked 3 shields.
 
 ---
 
@@ -141,20 +169,24 @@ Rank up triggers automatically when **all 4 stats** meet the threshold.
 ## What's Working ✅
 
 - [x] Full quest loop — complete, uncomplete, rewards apply/reverse
-- [x] Stat-driven rank-up system (XP removed)
-- [x] Promotion requirements UI — per-stat checklist with ✓/target
-- [x] Power bar replaces XP bar, colored by current rank
+- [x] Stat-driven rank-up system (XP removed), +1/stat per quest
+- [x] Rank thresholds tuned for ~1 year E→S at 80% consistency
+- [x] Rank-down if stats drop below threshold (on uncomplete)
+- [x] Merged Stats & Promotion section on Hunter tab (compact, per-stat progress + ✓/target)
+- [x] Power bar tracks the limiting stat (fills in step with the all-4 gate)
 - [x] Character portrait card on Hunter tab, updates on rank-up
-- [x] Rank-up overlay with character portrait + reward summary
+- [x] Rank-up overlay with character portrait + reward summary (+50 Gold)
 - [x] Month calendar with quest dot indicators per day
-- [x] Day detail view (tap calendar cell)
-- [x] Streak tracking (resets on missed day)
+- [x] Day detail view (tap calendar cell), shows shield earned
+- [x] Streak tracking with **Streak Shields** (bonus quests bank shields, auto-spent on misses)
 - [x] Gold rewards per quest
-- [x] Gates unlocked by stat milestones
-- [x] Shadow army unlocked by cumulative counters
-- [x] Boss raids with progress bars
-- [x] Milestones grid
-- [x] Passive buff toggles
+- [x] Gates **stat-gated** (each gate themed to a stat), Locked / CLEARED states
+- [x] Shadow army stat-gated
+- [x] Boss raids — stat/rank endgame goals that **pay gold once** when slain (`bossClaimMask`)
+- [x] Milestones grid — small early wins, **gold** when earned (incl. shield + gate ties)
+- [x] Completion = violet app-wide (quests, banner, gates CLEARED, ALL CLEAR, PERFECT DAY, READY)
+- [x] Bonus quests as badge tiles (feed the shield system, no stat effect)
+- [x] All-clear banner on Quests tab when all 5 done
 - [x] Particle background
 - [x] Launch screen
 - [x] Hunter name edit
@@ -166,23 +198,22 @@ Rank up triggers automatically when **all 4 stats** meet the threshold.
 ## What Needs Work 🔧
 
 ### High priority
-- [ ] **Passive buffs are broken** — buff toggles exist but the XP bonus system was removed with XP. Buffs need to be rewired to give stat bonuses instead (e.g. Supplements → +1 VIT on top of quest reward)
 - [ ] **D–S rank images missing** — only `rank_e` is done. Need to generate and add `rank_d`, `rank_c`, `rank_b`, `rank_a`, `rank_s` portraits at matching dark-background style
-- [ ] **No onboarding** — app drops straight into the Hunter tab with "Sung Jin-Woo" as default name. A first-launch name-entry screen would help
+- [ ] **No onboarding** — app drops straight into the Hunter tab with a default name. A first-launch name-entry screen would help
+- [ ] **"Why did I miss" feature (planned)** — a future feature to surface reasons for missed days and help with consistency. Pure accumulation was chosen partly to keep the per-day `DailyLog` history clean for this analysis.
 
 ### Medium priority
-- [ ] **Gates use hardcoded unlock conditions** — not connected to the new stat system. E.g. "Iron Keep" should unlock at STR 40, not `totalWorkouts >= 10`
-- [ ] **Feats/milestones reference old XP** — some milestone checks (e.g. "Reached D-Rank") work fine, but boss raid thresholds are arbitrary counts, not stat-based
-- [ ] **Promotion Requirements block adds scroll** — the Hunter tab is tight. Consider collapsing stats grid + promo requirements into a single compact section
-- [ ] **Streak "0D" display** — streak shows "0D" instead of "0 DAYS" after the label shortening; either revert or make consistent
+- [ ] **Build verification** — all recent work was done on Windows; project hasn't been compiled. Needs a build in the iOS simulator to confirm.
+- [ ] **Boss-slain celebration** — slaying a boss currently just adds gold silently; a popup/haptic moment would make it land.
+- [ ] **Legacy counters still exist** — `total*` counters on `Hunter` are now only used for the "first quest" milestone; could be removed once nothing else needs them.
 
 ### Nice to have
 - [ ] **Notifications** — daily reminder to complete quests, streak warning if not opened by evening
-- [ ] **Quest history stats** — total workouts all-time, longest streak, etc. on the Feats tab
+- [ ] **Quest history stats** — all-time totals, longest streak, etc. on the Feats tab
 - [ ] **Sound effects** — subtle audio on quest complete and rank-up
 - [ ] **Widget** — iOS home screen widget showing today's quest progress ring
 - [ ] **iCloud sync** — SwiftData supports CloudKit; add so data persists across reinstalls
-- [ ] **Buff rework** — make passive buffs meaningful again post-XP removal (stat bonuses, gold multipliers, or streak protection)
+- [ ] **Locked shadow hints** — locked shadows don't show their unlock requirement (tiles too small); could add on tap
 - [ ] **S rank celebration** — reaching Eclipse General should have a special one-time cinematic moment beyond the standard rank-up overlay
 
 ---
@@ -191,9 +222,10 @@ Rank up triggers automatically when **all 4 stats** meet the threshold.
 
 - `MagicCircleView.swift` is no longer used — can be deleted
 - `HunterCharacterView.swift` (the old SVG-drawn character) is replaced — delete if still present
-- Removing `xp` from `Hunter.swift` requires a **fresh install** (delete app from simulator/device before running) — SwiftData will crash on schema mismatch with old data
-- `QuestClearSheet` and `QuestsView` had `.xp` in `pillColor` switch — must be removed manually (no longer a valid `RewardType` case)
+- **Fresh install recommended after the rebalance** — two new SwiftData fields (`Hunter.streakShields`, `DailyLog.shieldEarned`) have default values so migration shouldn't crash, but existing save data holds old inflated stat values (from the +8–12 era) that behave oddly against the new +1 thresholds. Delete the app from the simulator before testing.
 
 ---
 
-*Last updated: June 2026*
+*Last updated: June 2026 — quest rename/icons, +1 stat rebalance (~1yr E→S), streak shields,
+stat-gated gates, all-clear banner, violet completion sweep, Feats rework (gold-paying stat/rank
+bosses + small gold milestones).*

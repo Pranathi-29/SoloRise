@@ -248,10 +248,10 @@ struct HunterView: View {
             HStack(spacing: 2) {
                 Image(systemName: met ? "checkmark" : "arrow.up")
                     .font(.system(size: 7, weight: .bold))
-                    .foregroundStyle(met ? Color.sysGreen : Color.textDim)
+                    .foregroundStyle(met ? Color.sysBlue : Color.textDim)
                 Text(met ? "READY" : "/\(req)")
                     .font(.system(size: 7, design: .monospaced))
-                    .foregroundStyle(met ? Color.sysGreen : Color.textDim)
+                    .foregroundStyle(met ? Color.sysBlue : Color.textDim)
             }
         }
         .frame(maxWidth: .infinity)
@@ -265,6 +265,8 @@ struct HunterView: View {
                        value: "\(store.hunter.gold)", color: .sysGold, iconColor: .sysGold)
             bottomStat(icon: "flame.fill", label: "STREAK",
                        value: "\(store.hunter.streak)D", color: .orange, iconColor: .orange)
+            bottomStat(icon: "shield.fill", label: "SHIELDS",
+                       value: "\(store.hunter.streakShields)", color: .sysBlue, iconColor: .sysBlue)
         }
         .id(store.refreshTick)
     }

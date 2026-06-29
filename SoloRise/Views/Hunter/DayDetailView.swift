@@ -108,12 +108,12 @@ struct DayDetailView: View {
                 Circle()
                     .trim(from: 0, to: CGFloat(completedCount) / 5.0)
                     .stroke(
-                        completedCount == 5 ? Color.sysGreen : Color.sysBlue,
+                        Color.sysBlue,
                         style: StrokeStyle(lineWidth: 8, lineCap: .round)
                     )
                     .frame(width: 70, height: 70)
                     .rotationEffect(.degrees(-90))
-                    .shadow(color: (completedCount == 5 ? Color.sysGreen : Color.sysBlue).opacity(0.5), radius: 6)
+                    .shadow(color: (Color.sysBlue).opacity(0.5), radius: 6)
                 VStack(spacing: 0) {
                     Text("\(completedCount)")
                         .font(.system(size: 20, weight: .black, design: .monospaced))
@@ -128,7 +128,7 @@ struct DayDetailView: View {
                 if completedCount == 5 {
                     Text("PERFECT DAY")
                         .font(.system(size: 14, weight: .bold, design: .monospaced))
-                        .foregroundStyle(Color.sysGreen)
+                        .foregroundStyle(Color.sysBlue)
                     Text("All quests completed")
                         .font(.system(size: 11, design: .rounded))
                         .foregroundStyle(Color.textSecondary)
@@ -157,7 +157,7 @@ struct DayDetailView: View {
         .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
         .overlay(alignment: .leading) {
             Rectangle()
-                .fill(completedCount == 5 ? Color.sysGreen : Color.sysBlue)
+                .fill(Color.sysBlue)
                 .frame(width: 3)
         }
     }
@@ -207,6 +207,11 @@ struct DayDetailView: View {
             }
             if log.proteinBuff {
                 buffRow(icon: "leaf.fill", name: "Clean Eating", color: .sysRed)
+            }
+
+            if log.shieldEarned {
+                Rectangle().fill(Color.sysBorder).frame(height: 1)
+                buffRow(icon: "shield.fill", name: "Streak Shield earned", color: .sysBlue)
             }
         }
         .padding(14)

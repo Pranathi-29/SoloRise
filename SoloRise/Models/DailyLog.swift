@@ -12,6 +12,7 @@ final class DailyLog {
     var supplementsBuff: Bool
     var waterBuff: Bool
     var proteinBuff: Bool
+    var shieldEarned: Bool = false
 
     init(date: Date = .now) {
         self.date = date
@@ -23,6 +24,7 @@ final class DailyLog {
         self.supplementsBuff = false
         self.waterBuff = false
         self.proteinBuff = false
+        self.shieldEarned = false
     }
 
     var completedCount: Int {

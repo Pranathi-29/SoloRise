@@ -53,7 +53,7 @@ struct ActivityRing: View {
                     if done == total {
                         Text("ALL CLEAR")
                             .font(.system(size: 16, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Color.sysGreen)
+                            .foregroundStyle(Color.sysBlue)
                             .lineLimit(1)
                     } else {
                         Text("\(total - done) LEFT")
@@ -84,7 +84,7 @@ struct ActivityRing: View {
             .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
             .overlay(alignment: .leading) {
                 Rectangle()
-                    .fill(done == total ? Color.sysGreen : Color.sysBlue)
+                    .fill(Color.sysBlue)
                     .frame(width: 3)
             }
         }

@@ -44,7 +44,7 @@ struct GatesView: View {
                 Text("IRONVEIL DOMAIN")
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
                     .foregroundStyle(.white)
-                Text("\(cleared) gates cleared · \(summoned) shadows summoned")
+                Text("\(cleared) \(cleared == 1 ? "gate" : "gates") cleared · \(summoned) \(summoned == 1 ? "shadow" : "shadows") summoned")
                     .font(.system(size: 10, design: .monospaced))
                     .foregroundStyle(Color.textSecondary)
             }
@@ -90,19 +90,18 @@ struct GateCard: View {
             if gate.isCleared {
                 Text("CLEARED")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color.sysGreen)
-                    .tracking(1)
-            } else if gate.isOpen {
-                Text("ENTERED")
-                    .font(.system(size: 8, design: .monospaced))
                     .foregroundStyle(Color.sysBlue)
+                    .tracking(1)
             } else {
-                Text(gate.requirement)
-                    .font(.system(size: 8, design: .monospaced))
-                    .foregroundStyle(Color.textDim)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
+                HStack(spacing: 3) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 7))
+                    Text(gate.requirement)
+                        .font(.system(size: 8, design: .monospaced))
+                }
+                .foregroundStyle(Color.textDim)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
             }
         }
         .padding(.vertical, 12).padding(.horizontal, 6)
@@ -146,24 +145,26 @@ struct GateData: Identifiable {
     let rankLabel: String
     let rankColor: Color
     let requirement: String
-    let isOpen: Bool
     let isCleared: Bool
+    var isOpen: Bool { isCleared }
 
     static func all(for hunter: Hunter) -> [GateData] {
-        let w = hunter.totalWorkouts
-        let s = hunter.totalStudySessions
-        let r = hunter.rank.rawValue
+        let str = hunter.statSTR
+        let int = hunter.statINT
+        let vit = hunter.statVIT
+        let wis = hunter.statWIS
+        let power = hunter.power
 
         return [
-            .init(id:"g1", sfSymbol:"checkmark.shield.fill",                    name:"Beginners Gate",  rankLabel:"RANK E", rankColor:.rankE, requirement:"Start",       isOpen:true,  isCleared:true),
-            .init(id:"g2", sfSymbol:"leaf.fill",                    name:"Forest Dungeon",  rankLabel:"RANK E", rankColor:.rankE, requirement:"3 workouts",  isOpen:w>=3,  isCleared:w>=3),
-            .init(id:"g3", sfSymbol:"shield.fill",                  name:"Iron Keep",       rankLabel:"RANK D", rankColor:.rankD, requirement:"10 workouts", isOpen:w>=10, isCleared:false),
-            .init(id:"g4", sfSymbol:"books.vertical.fill",          name:"Scholar Vault",   rankLabel:"RANK D", rankColor:.rankD, requirement:"25 study",    isOpen:s>=25, isCleared:false),
-            .init(id:"g5", sfSymbol:"snowflake",                    name:"Frost Citadel",   rankLabel:"RANK C", rankColor:.rankC, requirement:"C-Rank",      isOpen:r>=2,  isCleared:false),
-            .init(id:"g6", sfSymbol:"flame.fill",                   name:"Inferno Rift",    rankLabel:"RANK B", rankColor:.rankB, requirement:"B-Rank",      isOpen:r>=3,  isCleared:false),
-            .init(id:"g7", sfSymbol:"moon.fill",                    name:"Shadow Fortress", rankLabel:"RANK A", rankColor:.rankA, requirement:"A-Rank",      isOpen:r>=4,  isCleared:false),
-            .init(id:"g8", sfSymbol:"eye.fill",                     name:"Monarchs Domain", rankLabel:"RANK S", rankColor:.rankS, requirement:"S-Rank",      isOpen:r>=5,  isCleared:false),
-            .init(id:"g9", sfSymbol:"crown.fill",                   name:"Ashborn Throne",  rankLabel:"RANK S", rankColor:.rankS, requirement:"All 30 days", isOpen:false, isCleared:false),
+            .init(id:"g1", sfSymbol:"checkmark.shield.fill", name:"Beginners Gate",  rankLabel:"RANK E", rankColor:.rankE, requirement:"Start",     isCleared:true),
+            .init(id:"g2", sfSymbol:"leaf.fill",             name:"Forest Dungeon",  rankLabel:"RANK E", rankColor:.rankE, requirement:"VIT 25",    isCleared:vit>=25),
+            .init(id:"g3", sfSymbol:"shield.fill",           name:"Iron Keep",       rankLabel:"RANK D", rankColor:.rankD, requirement:"STR 40",    isCleared:str>=40),
+            .init(id:"g4", sfSymbol:"books.vertical.fill",   name:"Scholar Vault",   rankLabel:"RANK D", rankColor:.rankD, requirement:"INT 40",    isCleared:int>=40),
+            .init(id:"g5", sfSymbol:"snowflake",             name:"Frost Citadel",   rankLabel:"RANK C", rankColor:.rankC, requirement:"WIS 65",    isCleared:wis>=65),
+            .init(id:"g6", sfSymbol:"flame.fill",            name:"Inferno Rift",    rankLabel:"RANK B", rankColor:.rankB, requirement:"STR 95",    isCleared:str>=95),
+            .init(id:"g7", sfSymbol:"moon.fill",             name:"Shadow Fortress", rankLabel:"RANK A", rankColor:.rankA, requirement:"WIS 130",   isCleared:wis>=130),
+            .init(id:"g8", sfSymbol:"eye.fill",              name:"Monarchs Domain", rankLabel:"RANK S", rankColor:.rankS, requirement:"INT 130",   isCleared:int>=130),
+            .init(id:"g9", sfSymbol:"crown.fill",            name:"Ashborn Throne",  rankLabel:"RANK S", rankColor:.rankS, requirement:"Power 520", isCleared:power>=520),
         ]
     }
 }
@@ -175,18 +176,20 @@ struct ShadowData: Identifiable {
     let isSummoned: Bool
 
     static func all(for hunter: Hunter) -> [ShadowData] {
-        let w = hunter.totalWorkouts
-        let s = hunter.totalStudySessions
-        let r = hunter.rank.rawValue
+        let str = hunter.statSTR
+        let int = hunter.statINT
+        let vit = hunter.statVIT
+        let wis = hunter.statWIS
+        let power = hunter.power
         return [
-            .init(id:"s1", sfSymbol:"figure.fencing",          name:"IGRIS",     isSummoned: w >= 5),
-            .init(id:"s2", sfSymbol:"ant.fill",                name:"BERU",      isSummoned: s >= 10),
-            .init(id:"s3", sfSymbol:"shield.lefthalf.filled",                    name:"TUSK",      isSummoned: w >= 15),
-            .init(id:"s4", sfSymbol:"lizard.fill",             name:"KAISEL",    isSummoned: r >= 2),
-            .init(id:"s5", sfSymbol:"shield.lefthalf.filled",  name:"IRON",      isSummoned: w >= 30),
-            .init(id:"s6", sfSymbol:"pawprint.fill",           name:"TANK",      isSummoned: s >= 25),
-            .init(id:"s7", sfSymbol:"moon.stars.fill",         name:"GREED",     isSummoned: r >= 3),
-            .init(id:"s8", sfSymbol:"eye.trianglebadge.exclamationmark", name:"ARCHITECT", isSummoned: r >= 5),
+            .init(id:"s1", sfSymbol:"figure.fencing",          name:"IGRIS",     isSummoned: str >= 40),
+            .init(id:"s2", sfSymbol:"ant.fill",                name:"BERU",      isSummoned: int >= 40),
+            .init(id:"s3", sfSymbol:"shield.lefthalf.filled",  name:"TUSK",      isSummoned: wis >= 40),
+            .init(id:"s4", sfSymbol:"lizard.fill",             name:"KAISEL",    isSummoned: vit >= 40),
+            .init(id:"s5", sfSymbol:"flame.fill",              name:"IRON",      isSummoned: str >= 95),
+            .init(id:"s6", sfSymbol:"pawprint.fill",           name:"TANK",      isSummoned: vit >= 95),
+            .init(id:"s7", sfSymbol:"moon.stars.fill",         name:"GREED",     isSummoned: int >= 95),
+            .init(id:"s8", sfSymbol:"eye.trianglebadge.exclamationmark", name:"ARCHITECT", isSummoned: power >= 520),
         ]
     }
 }

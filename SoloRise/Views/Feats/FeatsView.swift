@@ -136,21 +136,62 @@ struct MilestoneItem: View {
         HStack(spacing: 8) {
             Image(systemName: ms.isEarned ? "checkmark.circle.fill" : "circle")
                 .font(.system(size: 12))
-                .foregroundStyle(ms.isEarned ? Color.sysGreen : Color.textDim)
+                .foregroundStyle(ms.isEarned ? Color.sysGold : Color.textDim)
             Text(ms.label)
                 .font(.system(size: 11, weight: .medium, design: .rounded))
-                .foregroundStyle(ms.isEarned ? Color.sysGreen : Color.textSecondary)
+                .foregroundStyle(ms.isEarned ? Color.sysGold : Color.textSecondary)
                 .lineLimit(2).minimumScaleFactor(0.8)
             Spacer()
         }
         .padding(.horizontal, 10).padding(.vertical, 10)
-        .background(ms.isEarned ? Color.sysGreen.opacity(0.05) : Color.sysCard2)
+        .background(ms.isEarned ? Color.sysGold.opacity(0.05) : Color.sysCard2)
         .overlay(Rectangle().stroke(
-            ms.isEarned ? Color.sysGreen.opacity(0.3) : Color.sysBorder, lineWidth: 1))
+            ms.isEarned ? Color.sysGold.opacity(0.3) : Color.sysBorder, lineWidth: 1))
     }
 }
 
 // MARK: - Data
+
+// Bosses are the major, stat/rank-driven endgame goals (distinct from the small
+// early-win milestones). Slaying one pays out gold, awarded once via Hunter.bossClaimMask.
+struct BossDefinition: Identifiable {
+    enum Metric { case str, int, vit, wis, power }
+
+    let id: String
+    let sfSymbol: String
+    let color: Color
+    let name: String
+    let description: String
+    let threshold: Int
+    let goldReward: Int
+    let metric: Metric
+
+    func current(for hunter: Hunter) -> Int {
+        switch metric {
+        case .str:   return hunter.statSTR
+        case .int:   return hunter.statINT
+        case .vit:   return hunter.statVIT
+        case .wis:   return hunter.statWIS
+        case .power: return hunter.power
+        }
+    }
+
+    static let all: [BossDefinition] = [
+        .init(id: "iron_troll", sfSymbol: "dumbbell.fill", color: .sysRed,
+              name: "The Iron Troll",
+              description: "Forge a body of iron — reach STR 190",
+              threshold: 190, goldReward: 250, metric: .str),
+        .init(id: "procrastination_dragon", sfSymbol: "flame.fill", color: .sysBlue,
+              name: "The Procrastination Dragon",
+              description: "Conquer the grind — reach INT 190",
+              threshold: 190, goldReward: 250, metric: .int),
+        .init(id: "chaos_monarch", sfSymbol: "crown.fill", color: .sysPurple,
+              name: "The Chaos Monarch",
+              description: "Attain total balance — reach Power 1200",
+              threshold: 1200, goldReward: 1000, metric: .power),
+    ]
+}
+
 struct BossData: Identifiable {
     let id: String
     let sfSymbol: String
@@ -160,35 +201,24 @@ struct BossData: Identifiable {
     let current: Int
     let threshold: Int
     let reward: String
-    var isSlain: Bool { current >= threshold }
+    let isSlain: Bool
 
     static func all(for hunter: Hunter) -> [BossData] {
-        [
-            .init(id: "b1",
-                  sfSymbol: "flame.fill",
-                  color: .sysRed,
-                  name: "The Procrastination Dragon",
-                  description: "Complete 30 study sessions",
-                  current: hunter.totalStudySessions,
-                  threshold: 30,
-                  reward: "Scholar Vault"),
-            .init(id: "b2",
-                  sfSymbol: "figure.strengthtraining.traditional",
-                  color: .sysBlue,
-                  name: "The Iron Troll",
-                  description: "Complete 20 workouts",
-                  current: hunter.totalWorkouts,
-                  threshold: 20,
-                  reward: "Iron Keep"),
-            .init(id: "b3",
-                  sfSymbol: "wind",
-                  color: .sysPurple,
-                  name: "The Chaos Monarch",
-                  description: "Maintain a 14-day streak",
-                  current: hunter.streak,
-                  threshold: 14,
-                  reward: "Stability Bonus"),
-        ]
+        BossDefinition.all.enumerated().map { i, b in
+            let claimed = (hunter.bossClaimMask & (1 << i)) != 0
+            let raw = b.current(for: hunter)
+            return BossData(
+                id: b.id,
+                sfSymbol: b.sfSymbol,
+                color: b.color,
+                name: b.name,
+                description: b.description,
+                current: min(raw, b.threshold),
+                threshold: b.threshold,
+                reward: "\(b.goldReward) Gold",
+                isSlain: claimed || raw >= b.threshold
+            )
+        }
     }
 }
 
@@ -202,16 +232,16 @@ struct MilestoneData: Identifiable {
                     hunter.totalHealthyDays + hunter.totalReadingSessions +
                     hunter.totalRecoveryDays
         return [
-            .init(id:"m1",  label:"First quest complete",  isEarned: total >= 1),
-            .init(id:"m2",  label:"3-day streak",          isEarned: hunter.streak >= 3),
-            .init(id:"m3",  label:"Reached D-Rank",        isEarned: hunter.rank.rawValue >= 1),
-            .init(id:"m4",  label:"100 gold earned",       isEarned: hunter.gold >= 100),
-            .init(id:"m5",  label:"5-day streak",          isEarned: hunter.streak >= 5),
-            .init(id:"m6",  label:"All quests in one day", isEarned: hasPerfectDay),
-            .init(id:"m7",  label:"10 study sessions",     isEarned: hunter.totalStudySessions >= 10),
-            .init(id:"m8",  label:"20 workouts",           isEarned: hunter.totalWorkouts >= 20),
-            .init(id:"m9",  label:"Reached C-Rank",        isEarned: hunter.rank.rawValue >= 2),
-            .init(id:"m10", label:"30-day streak",         isEarned: hunter.streak >= 30),
+            .init(id:"m1",  label:"First quest complete", isEarned: total >= 1),
+            .init(id:"m2",  label:"First perfect day",    isEarned: hasPerfectDay),
+            .init(id:"m3",  label:"3-day streak",         isEarned: hunter.streak >= 3),
+            .init(id:"m4",  label:"7-day streak",         isEarned: hunter.streak >= 7),
+            .init(id:"m5",  label:"Reached D-Rank",       isEarned: hunter.rank.rawValue >= 1),
+            .init(id:"m6",  label:"Reached C-Rank",       isEarned: hunter.rank.rawValue >= 2),
+            .init(id:"m7",  label:"100 gold earned",      isEarned: hunter.gold >= 100),
+            .init(id:"m8",  label:"Cleared first gate",   isEarned: hunter.statVIT >= 25),
+            .init(id:"m9",  label:"Banked 3 shields",     isEarned: hunter.streakShields >= 3),
+            .init(id:"m10", label:"30-day streak",        isEarned: hunter.streak >= 30),
         ]
     }
 }

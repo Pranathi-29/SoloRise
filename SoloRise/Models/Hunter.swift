@@ -7,11 +7,9 @@ enum HunterRank: Int, Codable, CaseIterable {
     var label: String { ["E","D","C","B","A","S"][rawValue] }
     var title: String { ["Shadow Fragment","Shadow Scout","Shadow Rogue","Shadow Knight","Shadow Commander","Eclipse General"][rawValue] }
 
-    // Minimum total power (STR+INT+VIT+WIS) required to rank up FROM this rank
-    var powerRequired: Int { [80, 160, 260, 380, 520, 99999][rawValue] }
-
-    // Minimum per-stat required to rank up FROM this rank
-    var statRequired: Int { [20, 40, 65, 95, 130, 9999][rawValue] }
+    // Minimum per-stat required to rank up FROM this rank.
+    // Tuned for ~1 year E→S at 80% consistency (each quest = +1/stat per day).
+    var statRequired: Int { [25, 55, 110, 190, 300, 9999][rawValue] }
 
     var next: HunterRank? { HunterRank(rawValue: rawValue + 1) }
 }
@@ -22,6 +20,8 @@ final class Hunter {
     var rankRaw: Int
     var gold: Int
     var streak: Int
+    var streakShields: Int = 0
+    var bossClaimMask: Int = 0   // bitmask of bosses whose gold reward has been claimed
     var lastActiveDate: Date?
 
     // Stats — these now drive everything
@@ -42,16 +42,20 @@ final class Hunter {
         set { rankRaw = newValue.rawValue }
     }
 
-    // Total power = sum of all stats
+    // Total power = sum of all stats (flavor number shown on the status bar)
     var power: Int { statSTR + statINT + statVIT + statWIS }
 
-    // Progress toward next rank (0.0 to 1.0)
+    // The stat currently gating the next rank-up (the slowest one)
+    var limitingStat: Int { min(statSTR, statINT, statVIT, statWIS) }
+
+    // Progress toward next rank (0.0 to 1.0), driven by the limiting stat
+    // so the bar fills exactly in step with the all-4-stats gate.
     var rankProgress: Double {
         guard let _ = rank.next else { return 1.0 }
-        let required = rank.powerRequired
-        // For rank E, base is 40 (4 stats × 10 starting value) so the bar starts at 0%
-        let base = rank.rawValue > 0 ? HunterRank(rawValue: rank.rawValue - 1)!.powerRequired : 40
-        let progress = Double(power - base) / Double(required - base)
+        let required = rank.statRequired
+        // Floor of the current rank band: the threshold that got us here (start = 10 at rank E)
+        let base = rank.rawValue > 0 ? HunterRank(rawValue: rank.rawValue - 1)!.statRequired : 10
+        let progress = Double(limitingStat - base) / Double(required - base)
         return max(0, min(1, progress))
     }
 
@@ -63,6 +67,8 @@ final class Hunter {
         self.rankRaw = HunterRank.e.rawValue
         self.gold = 0
         self.streak = 0
+        self.streakShields = 0
+        self.bossClaimMask = 0
         self.statSTR = 10
         self.statINT = 10
         self.statVIT = 10

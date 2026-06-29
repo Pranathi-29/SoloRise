@@ -76,8 +76,20 @@ final class HunterStore {
 
         lastClearedQuest = def
         checkRankUp()
+        checkBosses()
         save()
         return true
+    }
+
+    // Award a boss's gold once, the first time its goal is met.
+    private func checkBosses() {
+        for (i, boss) in BossDefinition.all.enumerated() {
+            let bit = 1 << i
+            if (hunter.bossClaimMask & bit) == 0 && boss.current(for: hunter) >= boss.threshold {
+                hunter.bossClaimMask |= bit
+                hunter.gold += boss.goldReward
+            }
+        }
     }
 
     func uncompleteQuest(_ id: QuestID) {
@@ -100,17 +112,21 @@ final class HunterStore {
     }
 
     func toggleBuff(_ keyPath: WritableKeyPath<DailyLog, Bool>) {
-        let wasOn = todayLog[keyPath: keyPath]
         todayLog[keyPath: keyPath].toggle()
-        let bonus = buffStatBonus(for: keyPath)
-        if !wasOn {
-            apply(reward: bonus)
-            checkRankUp()
-        } else {
-            reverseReward(reward: bonus)
-        }
+        updateShield()
         refreshTick += 1
         save()
+    }
+
+    // Bonus quests don't touch stats. Completing all 3 in a day banks one
+    // Streak Shield (capped at 3). Latched per-day so toggling off won't revoke it.
+    static let maxShields = 3
+    private func updateShield() {
+        let allBonusDone = todayLog.waterBuff && todayLog.supplementsBuff && todayLog.proteinBuff
+        if allBonusDone && !todayLog.shieldEarned {
+            todayLog.shieldEarned = true
+            hunter.streakShields = min(Self.maxShields, hunter.streakShields + 1)
+        }
     }
 
     // MARK: - Helpers
@@ -179,12 +195,6 @@ final class HunterStore {
         }
     }
 
-    private func buffStatBonus(for keyPath: WritableKeyPath<DailyLog, Bool>) -> QuestDefinition.Reward {
-        if keyPath == \.waterBuff       { return .init(type: .vit, value: 1) } // Hydration
-        if keyPath == \.supplementsBuff { return .init(type: .wis, value: 1) } // Supplements
-        return .init(type: .str, value: 1) // Clean Eating (proteinBuff)
-    }
-
     // MARK: - Private
     private func setDone(_ id: QuestID, _ val: Bool) {
         switch id {
@@ -236,7 +246,15 @@ final class HunterStore {
             hunter.streak += 1
             hunter.lastActiveDate = today
         default:
-            hunter.streak = 0
+            // Missed one or more days. Spend a shield per missed day to hold the
+            // streak; if we can't cover the whole gap, the streak resets.
+            let missed = daysDiff - 1
+            if hunter.streakShields >= missed {
+                hunter.streakShields -= missed
+                // streak held (neither lost nor incremented for the gap)
+            } else {
+                hunter.streak = 0
+            }
             hunter.lastActiveDate = today
         }
         save()

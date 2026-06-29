@@ -37,31 +37,31 @@ struct QuestDefinition: Identifiable {
               sfSymbol: "dumbbell.fill",
               name: "Physical Training",
               flavor: "The body is a weapon. Sharpen it.",
-              rewards: [.init(type: .str, value: 10), .init(type: .gold, value: 5)]),
+              rewards: [.init(type: .str, value: 1), .init(type: .gold, value: 5)]),
 
         .init(questID: .nutrition,
               sfSymbol: "carrot.fill",
               name: "Nutrition",
               flavor: "Fuel the machine.",
-              rewards: [.init(type: .vit, value: 8), .init(type: .gold, value: 5)]),
+              rewards: [.init(type: .vit, value: 1), .init(type: .gold, value: 5)]),
 
         .init(questID: .study,
               sfSymbol: "chart.line.uptrend.xyaxis",
               name: "Career Growth",
               flavor: "Sharpen the blade that carves your future.",
-              rewards: [.init(type: .int, value: 12), .init(type: .gold, value: 8)]),
+              rewards: [.init(type: .int, value: 1), .init(type: .gold, value: 8)]),
 
         .init(questID: .reading,
               sfSymbol: "brain.head.profile",
               name: "Mind Training",
               flavor: "Every page is a level gained.",
-              rewards: [.init(type: .wis, value: 10), .init(type: .gold, value: 5)]),
+              rewards: [.init(type: .wis, value: 1), .init(type: .gold, value: 5)]),
 
         .init(questID: .recovery,
               sfSymbol: "moon.stars.fill",
               name: "Recovery",
               flavor: "Even the Shadow Monarch rests.",
-              rewards: [.init(type: .vit, value: 8), .init(type: .gold, value: 4)]),
+              rewards: [.init(type: .vit, value: 1), .init(type: .gold, value: 4)]),
     ]
 }
 
