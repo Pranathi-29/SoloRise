@@ -109,6 +109,7 @@ struct QuestsView: View {
                     .font(.system(size: 22, weight: .medium))
                     .foregroundStyle(Color.sysBlue)
                     .shadow(color: Color.sysBlue.opacity(0.6), radius: 8)
+                    .symbolEffect(.bounce, value: allCleared)
             }
             .frame(width: 48, height: 48)
 
@@ -183,6 +184,7 @@ struct QuestRow: View {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.black)
+                        .symbolEffect(.bounce, value: isDone)
                 }
             }
 
@@ -222,7 +224,7 @@ struct QuestRow: View {
         .onTapGesture {
             if isDone { onUncomplete() } else { onComplete() }
         }
-        .animation(.easeOut(duration: 0.2), value: isDone)
+        .animation(.spring(response: 0.35, dampingFraction: 0.55), value: isDone)
     }
 
     private var questColor: Color { quest.questID.color }

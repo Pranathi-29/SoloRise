@@ -4,6 +4,7 @@ struct QuestClearSheet: View, Identifiable {
     let quest: QuestDefinition
     let onDismiss: () -> Void
     var id: String { quest.questID.rawValue }
+    @State private var pop = false
 
     var body: some View {
         ZStack {
@@ -26,8 +27,11 @@ struct QuestClearSheet: View, Identifiable {
                         .font(.system(size: 48, weight: .medium))
                         .foregroundStyle(questColor)
                         .shadow(color: questColor.opacity(0.6), radius: 12)
+                        .symbolEffect(.bounce, value: pop)
                 }
                 .frame(width: 100, height: 100)
+                .scaleEffect(pop ? 1 : 0.6)
+                .opacity(pop ? 1 : 0)
 
                 Text(quest.name.uppercased())
                     .font(.system(size: 14, weight: .bold, design: .monospaced))
@@ -60,7 +64,10 @@ struct QuestClearSheet: View, Identifiable {
         }
         .presentationDetents([.fraction(0.6)])
         .presentationBackground(Color.sysBG)
-        .onAppear { Haptic.questComplete() }
+        .onAppear {
+            Haptic.questComplete()
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.5)) { pop = true }
+        }
     }
 
     private var questColor: Color { quest.questID.color }

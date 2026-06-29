@@ -32,13 +32,15 @@ struct HunterRankImage: View {
 // MARK: - Rank-up overlay character display
 struct RankUpCharacterView: View {
     let rank: HunterRank
+    @State private var pulse = false
 
     var body: some View {
         ZStack {
-            // Glow behind image
+            // Pulsing aura behind image
             RoundedRectangle(cornerRadius: 0)
-                .fill(rank.color.opacity(0.12))
-                .blur(radius: 20)
+                .fill(rank.color.opacity(pulse ? 0.28 : 0.10))
+                .blur(radius: 26)
+                .scaleEffect(pulse ? 1.06 : 0.94)
 
             HunterRankImage(rank: rank)
                 .frame(width: 240, height: 320)
@@ -64,5 +66,10 @@ struct RankUpCharacterView: View {
                 }
         }
         .frame(width: 240, height: 320)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) {
+                pulse = true
+            }
+        }
     }
 }

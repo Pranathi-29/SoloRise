@@ -269,7 +269,8 @@ struct HunterView: View {
                        value: "\(store.hunter.gold)", color: .sysGold, iconColor: .sysGold)
                 .onTapGesture { showRewards = true }
             bottomStat(icon: "flame.fill", label: "STREAK",
-                       value: "\(store.hunter.streak)D", color: .orange, iconColor: .orange)
+                       value: "\(store.hunter.streak)D", color: .orange, iconColor: .orange,
+                       pulse: store.hunter.streak > 0)
             bottomStat(icon: "shield.fill", label: "SHIELDS",
                        value: "\(store.hunter.streakShields)", color: .sysBlue, iconColor: .sysBlue)
         }
@@ -277,9 +278,10 @@ struct HunterView: View {
     }
 
     private func bottomStat(icon: String, label: String, value: String,
-                             color: Color, iconColor: Color) -> some View {
+                             color: Color, iconColor: Color, pulse: Bool = false) -> some View {
         HStack {
             Image(systemName: icon).foregroundStyle(iconColor).font(.system(size: 13))
+                .symbolEffect(.pulse, options: .repeating, isActive: pulse)
             Text(label).font(.system(size: 8, design: .monospaced))
                 .foregroundStyle(Color.textSecondary).tracking(1)
             Spacer()
@@ -454,6 +456,7 @@ struct RewardsView: View {
             VStack(spacing: 3) {
                 Image(systemName: "checkmark.seal.fill")
                     .font(.system(size: 18)).foregroundStyle(Color.sysGold)
+                    .symbolEffect(.bounce, value: reward.claimed)
                 Text("CLAIMED")
                     .font(.system(size: 8, weight: .bold, design: .monospaced))
                     .foregroundStyle(Color.sysGold)

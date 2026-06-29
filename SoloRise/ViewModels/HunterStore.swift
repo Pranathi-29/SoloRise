@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import UserNotifications
 
 @Observable
 final class HunterStore {
@@ -39,6 +40,29 @@ final class HunterStore {
             hunter.rankRewards = Hunter.defaultRewards()
             save()
         }
+
+        // Returning (already-onboarded) users: refresh their reminders on launch.
+        // New users get the permission prompt right after onboarding's "BEGIN".
+        if hunter.hasOnboarded {
+            NotificationManager.requestAuthorization()
+            refreshNotifications()
+        }
+    }
+
+    // MARK: - Notifications
+    func refreshNotifications() {
+        NotificationManager.scheduleMorningReminder()
+        NotificationManager.scheduleStreakWarnings()
+        updateTodayStreakWarning()
+    }
+
+    /// Cancels tonight's streak warning once the day is complete; re-arms it otherwise.
+    func updateTodayStreakWarning() {
+        if todayLog.allComplete {
+            NotificationManager.cancelWarning(for: .now)
+        } else {
+            NotificationManager.scheduleWarning(for: .now)
+        }
     }
 
     // MARK: - Onboarding & real-life rewards
@@ -53,6 +77,9 @@ final class HunterStore {
         hunter.hasOnboarded = true
         refreshTick += 1
         save()
+
+        NotificationManager.requestAuthorization()
+        refreshNotifications()
     }
 
     func setRewardTitle(rankRaw: Int, title: String) {
@@ -93,17 +120,18 @@ final class HunterStore {
     // MARK: - App active
     func onAppActive() {
         let today = Calendar.current.startOfDay(for: .now)
-        guard !Calendar.current.isDate(todayLog.date, inSameDayAs: today) else { return }
-
-        if let existing = Self.log(for: today, in: modelContext) {
-            todayLog = existing
-        } else {
-            let newLog = DailyLog(date: today)
-            modelContext.insert(newLog)
-            todayLog = newLog
+        if !Calendar.current.isDate(todayLog.date, inSameDayAs: today) {
+            if let existing = Self.log(for: today, in: modelContext) {
+                todayLog = existing
+            } else {
+                let newLog = DailyLog(date: today)
+                modelContext.insert(newLog)
+                todayLog = newLog
+            }
+            checkStreak()
+            save()
         }
-        checkStreak()
-        save()
+        if hunter.hasOnboarded { refreshNotifications() }
     }
 
     // MARK: - Quest completion
@@ -136,6 +164,7 @@ final class HunterStore {
         checkRankUp()
         checkBosses()
         checkGates()
+        updateTodayStreakWarning()
         save()
         return true
     }
@@ -202,6 +231,7 @@ final class HunterStore {
         case .recovery:  hunter.totalRecoveryDays = max(0, hunter.totalRecoveryDays - 1)
         }
         checkRankDown()
+        updateTodayStreakWarning()
         refreshTick += 1
         save()
     }
@@ -341,5 +371,70 @@ final class HunterStore {
         )
         descriptor.fetchLimit = 1
         return try? modelContext.fetch(descriptor).first
+    }
+}
+
+// MARK: - Local notifications
+// Morning reminder (repeating daily) + an evening "streak at risk" warning scheduled per-day
+// for the next week, cancelled for any day once its quests are complete.
+enum NotificationManager {
+    static let morningId = "daily_reminder"
+    private static let warningPrefix = "streak_warning_"
+    static let reminderHour = 9
+    static let warningHour = 20
+
+    static func requestAuthorization() {
+        UNUserNotificationCenter.current()
+            .requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+    }
+
+    static func scheduleMorningReminder() {
+        let content = UNMutableNotificationContent()
+        content.title = "Daily Quests Await"
+        content.body = "Rise, Hunter. Your training begins."
+        content.sound = .default
+        var comps = DateComponents()
+        comps.hour = reminderHour
+        comps.minute = 0
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: true)
+        let req = UNNotificationRequest(identifier: morningId, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(req)
+    }
+
+    /// (Re)schedule the evening warning for today + the next 6 days. Adding a request with an
+    /// existing identifier replaces it, so this is safe to call repeatedly.
+    static func scheduleStreakWarnings() {
+        for offset in 0..<7 {
+            if let day = Calendar.current.date(byAdding: .day, value: offset, to: .now) {
+                scheduleWarning(for: day)
+            }
+        }
+    }
+
+    static func scheduleWarning(for date: Date) {
+        let cal = Calendar.current
+        var comps = cal.dateComponents([.year, .month, .day], from: date)
+        comps.hour = warningHour
+        comps.minute = 0
+        guard let fire = cal.date(from: comps), fire > .now else { return }
+        let content = UNMutableNotificationContent()
+        content.title = "Your Streak Is At Risk"
+        content.body = "Complete today's quests before midnight to keep your streak alive."
+        content.sound = .default
+        let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+        let req = UNNotificationRequest(identifier: warningId(for: date), content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(req)
+    }
+
+    static func cancelWarning(for date: Date) {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [warningId(for: date)])
+    }
+
+    private static func warningId(for date: Date) -> String {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return warningPrefix + f.string(from: date)
     }
 }

@@ -207,6 +207,7 @@ real reward.
 - [x] Completion = violet app-wide (quests, banner, gates CLEARED, ALL CLEAR, PERFECT DAY, READY)
 - [x] Bonus quests as badge tiles (feed the shield system, no stat effect)
 - [x] All-clear banner on Quests tab when all 5 done
+- [x] **Local notifications** — repeating 9am reminder + per-day 8pm streak-warning (cancelled when the day's done); `NotificationManager` in HunterStore, permission asked after onboarding
 - [x] **First-launch onboarding** — set hunter name + 5 real-life rewards
 - [x] **Reward Vault** — gold sink: claim real-life rewards per rank (Locked / CLAIM / CLAIMED), editable
 - [x] Rank-up overlay surfaces the unlocked real-life reward
@@ -214,6 +215,7 @@ real reward.
 - [x] Launch screen
 - [x] Hunter name edit
 - [x] Haptics on quest complete and rank-up
+- [x] **Juice animations** (SF Symbol effects + spring/glow): quest pop, all-clear burst, quest-clear popup, rank-up aura, streak flame pulse, reward-claim bounce
 - [x] Dark theme throughout (`#07050F` base)
 
 ---
@@ -221,8 +223,7 @@ real reward.
 ## What Needs Work 🔧
 
 ### High priority
-- [ ] **D–S rank images missing** — only `rank_e` is done. Need to generate and add `rank_d`, `rank_c`, `rank_b`, `rank_a`, `rank_s` portraits at matching dark-background style
-- [ ] **Notifications** — daily reminder + evening streak-warning. Highest-ROI re-engagement gap (a habit app with no reminders).
+- [ ] **D–S rank images** — user has the art; drop `rank_d`…`rank_s` into `Assets.xcassets` (code already references the names).
 - [ ] **"Why did I miss" feature (planned)** — a future feature to surface reasons for missed days and help with consistency. Pure accumulation was chosen partly to keep the per-day `DailyLog` history clean for this analysis.
 
 ### Medium priority
@@ -256,4 +257,4 @@ real reward.
 
 *Last updated: June 2026 — quest rename/icons, +1 stat rebalance (~1yr E→S), streak shields,
 stat-gated gates, all-clear banner, violet completion sweep, Feats rework (gold-paying stat/rank
-bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup.*
+bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations.*

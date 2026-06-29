@@ -192,6 +192,7 @@ struct RankUpOverlay: View {
                                     Image(systemName: "gift.fill")
                                         .font(.system(size: 11))
                                         .foregroundStyle(Color.sysGold)
+                                        .symbolEffect(.bounce, value: textVisible)
                                     Text(title)
                                         .font(.system(size: 13, weight: .semibold, design: .rounded))
                                         .foregroundStyle(.white)
