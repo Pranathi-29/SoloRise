@@ -32,6 +32,7 @@ final class Hunter {
     var streak: Int
     var streakShields: Int = 0
     var bossClaimMask: Int = 0   // bitmask of bosses whose gold reward has been claimed
+    var gateClaimMask: Int = 0   // bitmask of gates whose gold reward has been claimed
     var lastActiveDate: Date?
 
     // First-launch onboarding (name + real-life rewards) completed?
@@ -101,6 +102,7 @@ final class Hunter {
         self.streak = 0
         self.streakShields = 0
         self.bossClaimMask = 0
+        self.gateClaimMask = 0
         self.statSTR = 10
         self.statINT = 10
         self.statVIT = 10

@@ -7,7 +7,6 @@ final class HunterStore {
     var hunter: Hunter
     var todayLog: DailyLog
     var pendingRankUp: HunterRank? = nil
-    var lastClearedQuest: QuestDefinition? = nil
     var refreshTick: Int = 0
 
     let modelContext: ModelContext
@@ -115,6 +114,10 @@ final class HunterStore {
             return false
         }
 
+        // The streak is earned by completing a quest — so the *first* completion
+        // of the day is what advances it.
+        let isFirstOfDay = todayLog.completedCount == 0
+
         setDone(id, true)
 
         for reward in def.rewards {
@@ -129,11 +132,48 @@ final class HunterStore {
         case .recovery:  hunter.totalRecoveryDays += 1
         }
 
-        lastClearedQuest = def
+        if isFirstOfDay { registerActiveDay() }
         checkRankUp()
         checkBosses()
+        checkGates()
         save()
         return true
+    }
+
+    // Award a gate's one-time gold reward the first time it's cleared.
+    private func checkGates() {
+        for (i, gate) in GateData.all(for: hunter).enumerated() {
+            let bit = 1 << i
+            if gate.isCleared && gate.goldReward > 0 && (hunter.gateClaimMask & bit) == 0 {
+                hunter.gateClaimMask |= bit
+                hunter.gold += gate.goldReward
+            }
+        }
+    }
+
+    // Advances the streak when the first quest of a day is completed. Shields bridge
+    // any fully-missed days since the last active day; an un-bridgeable gap restarts at 1.
+    private func registerActiveDay() {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        guard let last = hunter.lastActiveDate else {
+            hunter.streak = 1
+            hunter.lastActiveDate = today
+            return
+        }
+        let lastDay = cal.startOfDay(for: last)
+        let diff = cal.dateComponents([.day], from: lastDay, to: today).day ?? 0
+        guard diff > 0 else { return }   // already counted as active today
+        let missed = diff - 1
+        if missed == 0 {
+            hunter.streak += 1
+        } else if hunter.streakShields >= missed {
+            hunter.streakShields -= missed
+            hunter.streak += 1
+        } else {
+            hunter.streak = 1
+        }
+        hunter.lastActiveDate = today
     }
 
     // Award a boss's gold once, the first time its goal is met.
@@ -210,16 +250,6 @@ final class HunterStore {
         return ((try? modelContext.fetchCount(descriptor)) ?? 0) > 0
     }
 
-    func recentLogs(days: Int) -> [DailyLog] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .now
-        var desc = FetchDescriptor<DailyLog>(
-            predicate: #Predicate { log in log.date >= cutoff },
-            sortBy: [SortDescriptor(\.date)]
-        )
-        desc.fetchLimit = days + 1
-        return (try? modelContext.fetch(desc)) ?? []
-    }
-
     // MARK: - Rank up check (stat-driven)
     private func checkRankUp() {
         guard let next = hunter.rank.next else { return }
@@ -281,38 +311,20 @@ final class HunterStore {
         }
     }
 
+    // App-open reconciliation. The streak is *earned* by completing quests
+    // (registerActiveDay), never by opening the app — so here we only break a streak
+    // whose missed-day gap can no longer be rescued by shields. Shields are spent on
+    // return (in registerActiveDay), not here; lastActiveDate is never touched here.
     private func checkStreak() {
+        guard hunter.streak > 0, let last = hunter.lastActiveDate else { return }
         let cal = Calendar.current
         let today = cal.startOfDay(for: .now)
-
-        guard let last = hunter.lastActiveDate else {
-            hunter.lastActiveDate = today
+        let lastDay = cal.startOfDay(for: last)
+        let missed = (cal.dateComponents([.day], from: lastDay, to: today).day ?? 0) - 1
+        if missed > 0 && hunter.streakShields < missed {
             hunter.streak = 0
             save()
-            return
         }
-
-        let lastDay = cal.startOfDay(for: last)
-        let daysDiff = cal.dateComponents([.day], from: lastDay, to: today).day ?? 0
-
-        switch daysDiff {
-        case 0: break
-        case 1:
-            hunter.streak += 1
-            hunter.lastActiveDate = today
-        default:
-            // Missed one or more days. Spend a shield per missed day to hold the
-            // streak; if we can't cover the whole gap, the streak resets.
-            let missed = daysDiff - 1
-            if hunter.streakShields >= missed {
-                hunter.streakShields -= missed
-                // streak held (neither lost nor incremented for the gap)
-            } else {
-                hunter.streak = 0
-            }
-            hunter.lastActiveDate = today
-        }
-        save()
     }
 
     private func save() {
