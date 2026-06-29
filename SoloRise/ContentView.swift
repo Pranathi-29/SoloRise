@@ -7,6 +7,7 @@ struct ContentView: View {
     @State private var store: HunterStore?
     @State private var selectedTab: Tab = .hunter
     @State private var showLaunch: Bool = true
+    @State private var onboarded: Bool = true
 
     enum Tab { case hunter, quests, gates, feats }
 
@@ -14,7 +15,11 @@ struct ContentView: View {
         ZStack {
             Group {
                 if let store {
-                    mainView(store: store)
+                    if onboarded {
+                        mainView(store: store)
+                    } else {
+                        OnboardingView(store: store) { onboarded = true }
+                    }
                 } else {
                     Color(hex: "#07050F").ignoresSafeArea()
                 }
@@ -28,8 +33,11 @@ struct ContentView: View {
             }
         }
         .animation(.easeOut(duration: 0.3), value: showLaunch)
+        .animation(.easeOut(duration: 0.3), value: onboarded)
         .onAppear {
-            store = HunterStore(modelContext: modelContext)
+            let s = HunterStore(modelContext: modelContext)
+            store = s
+            onboarded = s.hunter.hasOnboarded
         }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
@@ -58,7 +66,8 @@ struct ContentView: View {
         .ignoresSafeArea(edges: .bottom)
         .overlay {
             if let newRank = store.pendingRankUp {
-                RankUpOverlay(rank: newRank) {
+                RankUpOverlay(rank: newRank,
+                              rewardTitle: store.reward(forRank: newRank)?.title) {
                     store.pendingRankUp = nil
                 }
                 .transition(.opacity)
@@ -130,8 +139,9 @@ struct SystemTabBar: View {
 
 struct RankUpOverlay: View {
     let rank: HunterRank
+    var rewardTitle: String? = nil
     let onDismiss: () -> Void
- 
+
     @State private var textVisible = false
     @State private var imageVisible = false
  
@@ -171,7 +181,27 @@ struct RankUpOverlay: View {
                                 .font(.system(size: 8, design: .monospaced))
                                 .foregroundStyle(Color.textSecondary)
                         }
- 
+
+                        // Real-life reward unlocked at this rank
+                        if let title = rewardTitle, !title.isEmpty {
+                            VStack(spacing: 6) {
+                                Text("REWARD UNLOCKED")
+                                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                                    .foregroundStyle(Color.sysGold).tracking(2)
+                                HStack(spacing: 6) {
+                                    Image(systemName: "gift.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(Color.sysGold)
+                                    Text(title)
+                                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                                        .foregroundStyle(.white)
+                                        .multilineTextAlignment(.center)
+                                }
+                            }
+                            .padding(.horizontal, 16).padding(.vertical, 10)
+                            .overlay(Rectangle().stroke(Color.sysGoldDim, lineWidth: 1))
+                        }
+
                         Button {
                             Haptic.rankUp()
                             onDismiss()
@@ -199,6 +229,103 @@ struct RankUpOverlay: View {
                 textVisible = true
             }
             Haptic.rankUp()
+        }
+    }
+}
+
+// MARK: - Onboarding (first launch: name + real-life rewards)
+struct OnboardingView: View {
+    let store: HunterStore
+    let onDone: () -> Void
+
+    @State private var name: String = ""
+    @State private var rewards: [String] = ["", "", "", "", ""]
+
+    // index → rank that unlocks the reward (D, C, B, A, S) + its gold cost
+    private let rankInfo: [(label: String, cost: Int, placeholder: String)] = [
+        ("D", 400,  "e.g. New running shoes"),
+        ("C", 800,  "e.g. Steak dinner out"),
+        ("B", 1600, "e.g. That video game"),
+        ("A", 3000, "e.g. Weekend getaway"),
+        ("S", 5000, "e.g. Big-ticket reward"),
+    ]
+
+    var body: some View {
+        ZStack {
+            Color.sysBG.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 16) {
+                    VStack(spacing: 8) {
+                        Text("[ SYSTEM AWAKENING ]")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(Color.sysGold).tracking(3)
+                        Text("WELCOME, HUNTER")
+                            .font(.system(size: 20, weight: .black, design: .monospaced))
+                            .foregroundStyle(Color.sysBlue).tracking(2)
+                        Text("Forge your daily discipline and rise from E to S over the year ahead.")
+                            .font(.system(size: 11, design: .rounded))
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top, 36)
+
+                    fieldCard(label: "HUNTER NAME") {
+                        TextField("", text: $name,
+                                  prompt: Text("Enter your name").foregroundColor(.textDim))
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.white)
+                            .textInputAutocapitalization(.words)
+                    }
+
+                    VStack(spacing: 4) {
+                        Text("SET YOUR REWARDS")
+                            .font(.system(size: 11, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color.sysBlue).tracking(2)
+                        Text("Name a real reward for each rank. Reach it, spend your saved gold, treat yourself.")
+                            .font(.system(size: 10, design: .rounded))
+                            .foregroundStyle(Color.textSecondary)
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.top, 6)
+
+                    ForEach(rankInfo.indices, id: \.self) { i in
+                        fieldCard(label: "\(rankInfo[i].label)-RANK · \(rankInfo[i].cost) GOLD") {
+                            TextField("", text: $rewards[i],
+                                      prompt: Text(rankInfo[i].placeholder).foregroundColor(.textDim))
+                                .font(.system(size: 13, design: .rounded))
+                                .foregroundStyle(.white)
+                        }
+                    }
+
+                    Button {
+                        store.completeOnboarding(name: name, rewardTitles: rewards)
+                        Haptic.rankUp()
+                        onDone()
+                    } label: {
+                        Text("BEGIN")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .tracking(4).foregroundStyle(.black)
+                            .frame(maxWidth: .infinity).padding(.vertical, 16)
+                            .background(Color.sysBlue)
+                    }
+                    .padding(.top, 8).padding(.bottom, 40)
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+
+    private func fieldCard<Content: View>(label: String,
+                                          @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.textSecondary).tracking(1.5)
+            content()
+                .padding(.horizontal, 12).padding(.vertical, 12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.sysCard2)
+                .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
         }
     }
 }

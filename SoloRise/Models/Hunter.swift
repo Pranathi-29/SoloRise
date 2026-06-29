@@ -1,6 +1,16 @@
 import Foundation
 import SwiftData
 
+// A real-life reward the user pre-commits to, unlocked by reaching a rank and
+// "bought" by spending the gold they've saved by then. Stored encoded on Hunter.
+struct RankReward: Codable, Identifiable {
+    var rankRaw: Int    // the rank that unlocks it: 1=D, 2=C, 3=B, 4=A, 5=S
+    var title: String
+    var goldCost: Int
+    var claimed: Bool
+    var id: Int { rankRaw }
+}
+
 enum HunterRank: Int, Codable, CaseIterable {
     case e = 0, d, c, b, a, s
 
@@ -23,6 +33,28 @@ final class Hunter {
     var streakShields: Int = 0
     var bossClaimMask: Int = 0   // bitmask of bosses whose gold reward has been claimed
     var lastActiveDate: Date?
+
+    // First-launch onboarding (name + real-life rewards) completed?
+    var hasOnboarded: Bool = false
+    // Real-life rewards, JSON-encoded (kept as Data so SwiftData persists it simply)
+    var rankRewardsData: Data = Data()
+
+    var rankRewards: [RankReward] {
+        get { (try? JSONDecoder().decode([RankReward].self, from: rankRewardsData)) ?? [] }
+        set { rankRewardsData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+    }
+
+    // Default reward slots — one per rank-up, with gold costs that track how much
+    // gold you'll have saved by the time you reach each rank (always affordable).
+    static func defaultRewards() -> [RankReward] {
+        [
+            .init(rankRaw: 1, title: "", goldCost: 400,  claimed: false),
+            .init(rankRaw: 2, title: "", goldCost: 800,  claimed: false),
+            .init(rankRaw: 3, title: "", goldCost: 1600, claimed: false),
+            .init(rankRaw: 4, title: "", goldCost: 3000, claimed: false),
+            .init(rankRaw: 5, title: "", goldCost: 5000, claimed: false),
+        ]
+    }
 
     // Stats — these now drive everything
     var statSTR: Int

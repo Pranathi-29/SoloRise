@@ -34,6 +34,61 @@ final class HunterStore {
         }
 
         checkStreak()
+
+        // Ensure the 5 reward slots always exist (onboarding fills in their titles).
+        if hunter.rankRewards.isEmpty {
+            hunter.rankRewards = Hunter.defaultRewards()
+            save()
+        }
+    }
+
+    // MARK: - Onboarding & real-life rewards
+    func completeOnboarding(name: String, rewardTitles: [String]) {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmed.isEmpty { hunter.name = trimmed }
+        var rewards = Hunter.defaultRewards()
+        for i in rewards.indices where i < rewardTitles.count {
+            rewards[i].title = rewardTitles[i].trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        hunter.rankRewards = rewards
+        hunter.hasOnboarded = true
+        refreshTick += 1
+        save()
+    }
+
+    func setRewardTitle(rankRaw: Int, title: String) {
+        var rewards = hunter.rankRewards
+        guard let idx = rewards.firstIndex(where: { $0.rankRaw == rankRaw }) else { return }
+        rewards[idx].title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        hunter.rankRewards = rewards
+        refreshTick += 1
+        save()
+    }
+
+    func canClaim(_ reward: RankReward) -> Bool {
+        !reward.claimed
+            && !reward.title.isEmpty
+            && hunter.rank.rawValue >= reward.rankRaw
+            && hunter.gold >= reward.goldCost
+    }
+
+    func isUnlocked(_ reward: RankReward) -> Bool {
+        hunter.rank.rawValue >= reward.rankRaw
+    }
+
+    func claimReward(_ reward: RankReward) {
+        guard canClaim(reward) else { return }
+        var rewards = hunter.rankRewards
+        guard let idx = rewards.firstIndex(where: { $0.rankRaw == reward.rankRaw }) else { return }
+        rewards[idx].claimed = true
+        hunter.rankRewards = rewards
+        hunter.gold = max(0, hunter.gold - reward.goldCost)
+        refreshTick += 1
+        save()
+    }
+
+    func reward(forRank rank: HunterRank) -> RankReward? {
+        hunter.rankRewards.first { $0.rankRaw == rank.rawValue }
     }
 
     // MARK: - App active

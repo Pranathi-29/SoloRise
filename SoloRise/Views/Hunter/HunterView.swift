@@ -3,6 +3,7 @@ import SwiftUI
 struct HunterView: View {
     let store: HunterStore
     @State private var showEditName = false
+    @State private var showRewards = false
 
     var body: some View {
         GeometryReader { geo in
@@ -29,6 +30,9 @@ struct HunterView: View {
                 set: { store.hunter.name = $0; try? store.modelContext.save() }
             ))
             .presentationDetents([.medium])
+        }
+        .sheet(isPresented: $showRewards) {
+            RewardsView(store: store)
         }
     }
 
@@ -263,6 +267,7 @@ struct HunterView: View {
         HStack(spacing: 8) {
             bottomStat(icon: "dollarsign.circle.fill", label: "GOLD",
                        value: "\(store.hunter.gold)", color: .sysGold, iconColor: .sysGold)
+                .onTapGesture { showRewards = true }
             bottomStat(icon: "flame.fill", label: "STREAK",
                        value: "\(store.hunter.streak)D", color: .orange, iconColor: .orange)
             bottomStat(icon: "shield.fill", label: "SHIELDS",
@@ -315,6 +320,168 @@ struct HunterView: View {
         case .b: return "SHADOW KNIGHT"
         case .a: return "SHADOW COMMANDER"
         case .s: return "ECLIPSE GENERAL"
+        }
+    }
+}
+
+// MARK: - Reward Vault (real-life rewards bought with gold, gated by rank)
+struct RewardsView: View {
+    let store: HunterStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var titles: [Int: String] = [:]
+
+    private func rankLabel(_ raw: Int) -> String { ["E","D","C","B","A","S"][raw] }
+    private func rankColor(_ raw: Int) -> Color { (HunterRank(rawValue: raw) ?? .e).color }
+
+    var body: some View {
+        ZStack {
+            Color.sysBG.ignoresSafeArea()
+            VStack(spacing: 0) {
+                header
+                LinearGradient(colors: [.clear, .sysBlue.opacity(0.5), .clear],
+                               startPoint: .leading, endPoint: .trailing).frame(height: 1)
+                ScrollView {
+                    VStack(spacing: 10) {
+                        goldBanner
+                        ForEach(store.hunter.rankRewards) { reward in
+                            rewardRow(reward)
+                        }
+                    }
+                    .padding(16)
+                }
+            }
+        }
+        .presentationBackground(Color.sysBG)
+        .onAppear {
+            for r in store.hunter.rankRewards { titles[r.rankRaw] = r.title }
+        }
+    }
+
+    private var header: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 3) {
+                Text("REWARD VAULT")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.sysBlue).tracking(3)
+                Text("Spend gold on real-life rewards")
+                    .font(.system(size: 11, design: .rounded))
+                    .foregroundStyle(Color.textSecondary)
+            }
+            Spacer()
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(Color.sysCard2)
+                    .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+            }
+        }
+        .padding(.horizontal, 20).padding(.vertical, 16)
+        .background(Color.sysPanel)
+    }
+
+    private var goldBanner: some View {
+        HStack {
+            Image(systemName: "dollarsign.circle.fill")
+                .foregroundStyle(Color.sysGold).font(.system(size: 18))
+            Text("AVAILABLE GOLD")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.textSecondary).tracking(1.5)
+            Spacer()
+            Text("\(store.hunter.gold)")
+                .font(.system(size: 18, weight: .black, design: .monospaced))
+                .foregroundStyle(Color.sysGold)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .background(Color.sysCard2)
+        .overlay(Rectangle().stroke(Color.sysGoldDim, lineWidth: 1))
+        .id(store.refreshTick)
+    }
+
+    private func titleBinding(_ reward: RankReward) -> Binding<String> {
+        Binding(
+            get: { titles[reward.rankRaw] ?? reward.title },
+            set: { newVal in
+                titles[reward.rankRaw] = newVal
+                store.setRewardTitle(rankRaw: reward.rankRaw, title: newVal)
+            }
+        )
+    }
+
+    private func rewardRow(_ reward: RankReward) -> some View {
+        let unlocked = store.isUnlocked(reward)
+        let claimable = store.canClaim(reward)
+        let rc = rankColor(reward.rankRaw)
+        return HStack(spacing: 12) {
+            ZStack {
+                Rectangle().fill(rc.opacity(0.1))
+                    .overlay(Rectangle().stroke(rc, lineWidth: 1))
+                Text(rankLabel(reward.rankRaw))
+                    .font(.system(size: 18, weight: .black, design: .monospaced))
+                    .foregroundStyle(rc)
+            }
+            .frame(width: 44, height: 44)
+
+            VStack(alignment: .leading, spacing: 5) {
+                TextField("", text: titleBinding(reward),
+                          prompt: Text("Set a reward…").foregroundColor(.textDim))
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(reward.claimed ? Color.textSecondary : .white)
+                    .disabled(reward.claimed)
+                HStack(spacing: 4) {
+                    Image(systemName: "dollarsign.circle.fill")
+                        .font(.system(size: 9)).foregroundStyle(Color.sysGold)
+                    Text("\(reward.goldCost) GOLD")
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+            Spacer()
+            statusView(reward, unlocked: unlocked, claimable: claimable)
+        }
+        .padding(14)
+        .background(reward.claimed ? Color.sysGold.opacity(0.05) : Color.sysCard2)
+        .overlay(Rectangle().stroke(
+            reward.claimed ? Color.sysGoldDim : (unlocked ? rc.opacity(0.4) : Color.sysBorder),
+            lineWidth: 1))
+        .opacity(unlocked || reward.claimed ? 1 : 0.6)
+    }
+
+    @ViewBuilder
+    private func statusView(_ reward: RankReward, unlocked: Bool, claimable: Bool) -> some View {
+        if reward.claimed {
+            VStack(spacing: 3) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.system(size: 18)).foregroundStyle(Color.sysGold)
+                Text("CLAIMED")
+                    .font(.system(size: 8, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.sysGold)
+            }
+        } else if claimable {
+            Button {
+                store.claimReward(reward); Haptic.rankUp()
+            } label: {
+                Text("CLAIM")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(1)
+                    .foregroundStyle(.black)
+                    .padding(.horizontal, 14).padding(.vertical, 8)
+                    .background(Color.sysGold)
+            }
+            .buttonStyle(.plain)
+        } else if !unlocked {
+            VStack(spacing: 3) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 12)).foregroundStyle(Color.textDim)
+                Text("RANK \(rankLabel(reward.rankRaw))")
+                    .font(.system(size: 8, design: .monospaced)).foregroundStyle(Color.textDim)
+            }
+        } else {
+            Text(reward.title.isEmpty ? "SET REWARD" : "NEED \(reward.goldCost)g")
+                .font(.system(size: 8, design: .monospaced))
+                .foregroundStyle(Color.textDim)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 56)
         }
     }
 }
