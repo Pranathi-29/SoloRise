@@ -4,6 +4,7 @@ struct HunterView: View {
     let store: HunterStore
     @State private var showEditName = false
     @State private var showRewards = false
+    @State private var showSettings = false
 
     var body: some View {
         GeometryReader { geo in
@@ -33,6 +34,9 @@ struct HunterView: View {
         }
         .sheet(isPresented: $showRewards) {
             RewardsView(store: store)
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsView(store: store)
         }
     }
 
@@ -124,6 +128,12 @@ struct HunterView: View {
                         .font(.system(size: 8, design: .monospaced))
                         .foregroundStyle(Color.sysGreen)
                 }
+                Button { showSettings = true } label: {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(Color.textSecondary)
+                }
+                .padding(.leading, 10)
             }
             .padding(.horizontal, 12).padding(.vertical, 7)
             .background(Color.sysPanel)

@@ -134,10 +134,12 @@ The card shows the requirement + gold reward while locked, "CLEARED" once met.
 Two tiers, defined in `FeatsView.swift`:
 - **Bosses** = major stat/rank endgame goals (`BossDefinition`), **pay gold once** when first
   slain (tracked by `Hunter.bossClaimMask`, awarded in `HunterStore.checkBosses()`):
-  Iron Troll → STR 190 (250g) · Procrastination Dragon → INT 190 (250g) · Chaos Monarch →
-  Power 1200 (1000g).
-- **Milestones** = small early wins, shown in **gold** when earned: first quest, first perfect
-  day, 3/7/30-day streaks, D/C-Rank, 100 gold, cleared first gate (VIT 25), banked 3 shields.
+  Iron Troll → STR 190 (250g, `hammer.fill`) · Procrastination Dragon → INT 190 (250g,
+  `lizard.fill`) · Chaos Monarch → Power 1200 (1000g, `tornado`).
+- **Milestones** = a horizontally-scrolling **trophy shelf** (`MilestoneBadge`, 2-row `LazyHGrid`):
+  18 icon badges, gold + bounce when earned, dim when locked. Grouped: getting-started → quest
+  volume (10/50/200) → streaks (3/7/14/30/100-day) → ranks (D→S) → systems (first gate, 3
+  shields, Power 300). Append to `MilestoneData.all` to add more — the shelf scrolls to fit.
 
 ### Real-Life Rewards + Onboarding
 The gold sink: the user pre-commits to **5 real-life rewards**, one per rank-up (D/C/B/A/S), a
@@ -207,7 +209,8 @@ real reward.
 - [x] Completion = violet app-wide (quests, banner, gates CLEARED, ALL CLEAR, PERFECT DAY, READY)
 - [x] Bonus quests as badge tiles (feed the shield system, no stat effect)
 - [x] All-clear banner on Quests tab when all 5 done
-- [x] **Local notifications** — repeating 9am reminder + per-day 8pm streak-warning (cancelled when the day's done); `NotificationManager` in HunterStore, permission asked after onboarding
+- [x] **Local notifications** — repeating reminder + per-day streak-warning (cancelled when the day's done); `NotificationManager` in HunterStore, permission asked after onboarding
+- [x] **Settings screen** (`SettingsView`, gear on Hunter tab) — notifications on/off + reminder/warning times (`@AppStorage`), edit rewards, edit name, about/version
 - [x] **First-launch onboarding** — set hunter name + 5 real-life rewards
 - [x] **Reward Vault** — gold sink: claim real-life rewards per rank (Locked / CLAIM / CLAIMED), editable
 - [x] Rank-up overlay surfaces the unlocked real-life reward
@@ -215,7 +218,7 @@ real reward.
 - [x] Launch screen
 - [x] Hunter name edit
 - [x] Haptics on quest complete and rank-up
-- [x] **Juice animations** (SF Symbol effects + spring/glow): quest pop, all-clear burst, quest-clear popup, rank-up aura, streak flame pulse, reward-claim bounce
+- [x] **Juice animations** (SF Symbol effects + spring/glow): quest-icon bounce on CLAIM, all-clear burst, quest-clear popup, rank-up aura, streak flame pulse, reward-claim bounce, milestone-badge bounce on unlock
 - [x] Dark theme throughout (`#07050F` base)
 
 ---
@@ -235,7 +238,6 @@ real reward.
 ### Nice to have
 - [ ] **Expand milestones** — currently an arbitrary 10; deferred. Could broaden coverage + add small gold rewards.
 - [ ] **Micro-celebrations** — gate gold, boss gold, and reward claims are awarded silently; a toast + haptic would make them land.
-- [ ] **Settings/Profile screen** — home for the notification toggle, about, edit-rewards shortcut.
 - [ ] **Quest history stats** — all-time totals, longest streak, etc. on the Feats tab
 - [ ] **Sound effects** — subtle audio on quest complete and rank-up
 - [ ] **Widget** — iOS home screen widget showing today's quest progress ring
@@ -257,4 +259,4 @@ real reward.
 
 *Last updated: June 2026 — quest rename/icons, +1 stat rebalance (~1yr E→S), streak shields,
 stat-gated gates, all-clear banner, violet completion sweep, Feats rework (gold-paying stat/rank
-bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations.*
+bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations, settings screen.*

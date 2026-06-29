@@ -3,6 +3,7 @@ import SwiftUI
 struct QuestsView: View {
     let store: HunterStore
     @State private var showReward: QuestDefinition? = nil
+    @State private var claimCounts: [QuestID: Int] = [:]
 
     private let buffs: [(label: String, sfSymbol: String, color: Color, keyPath: WritableKeyPath<DailyLog, Bool>)] = [
         ("Hydration",    "drop.fill",  .sysGreen,  \.waterBuff),
@@ -25,6 +26,7 @@ struct QuestsView: View {
                     QuestRow(
                         quest: quest,
                         isDone: store.isComplete(quest.questID),
+                        claimCount: claimCounts[quest.questID] ?? 0,
                         onComplete: {
                             store.completeQuest(quest.questID)
                             showReward = quest
@@ -56,7 +58,10 @@ struct QuestsView: View {
         }
         .background(Color.clear)
         .sheet(item: $showReward) { q in
-            QuestClearSheet(quest: q) { showReward = nil }
+            QuestClearSheet(quest: q) {
+                showReward = nil
+                claimCounts[q.questID, default: 0] += 1
+            }
         }
     }
 
@@ -169,6 +174,7 @@ struct QuestsView: View {
 struct QuestRow: View {
     let quest: QuestDefinition
     let isDone: Bool
+    let claimCount: Int
     let onComplete: () -> Void
     let onUncomplete: () -> Void
 
@@ -184,7 +190,6 @@ struct QuestRow: View {
                     Image(systemName: "checkmark")
                         .font(.system(size: 12, weight: .bold))
                         .foregroundStyle(.black)
-                        .symbolEffect(.bounce, value: isDone)
                 }
             }
 
@@ -196,6 +201,7 @@ struct QuestRow: View {
                 Image(systemName: quest.sfSymbol)
                     .font(.system(size: 16, weight: .medium))
                     .foregroundStyle(isDone ? Color.textSecondary : questColor)
+                    .symbolEffect(.bounce, value: claimCount)
             }
 
             VStack(alignment: .leading, spacing: 4) {

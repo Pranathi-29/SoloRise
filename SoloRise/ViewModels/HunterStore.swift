@@ -51,6 +51,10 @@ final class HunterStore {
 
     // MARK: - Notifications
     func refreshNotifications() {
+        guard NotificationManager.enabled else {
+            NotificationManager.cancelAll()
+            return
+        }
         NotificationManager.scheduleMorningReminder()
         NotificationManager.scheduleStreakWarnings()
         updateTodayStreakWarning()
@@ -380,12 +384,19 @@ final class HunterStore {
 enum NotificationManager {
     static let morningId = "daily_reminder"
     private static let warningPrefix = "streak_warning_"
-    static let reminderHour = 9
-    static let warningHour = 20
+
+    // User-controlled settings (Settings screen writes these via @AppStorage).
+    static var enabled: Bool { UserDefaults.standard.object(forKey: "notificationsEnabled") as? Bool ?? true }
+    static var reminderHour: Int { UserDefaults.standard.object(forKey: "reminderHour") as? Int ?? 9 }
+    static var warningHour: Int { UserDefaults.standard.object(forKey: "warningHour") as? Int ?? 20 }
 
     static func requestAuthorization() {
         UNUserNotificationCenter.current()
             .requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+    }
+
+    static func cancelAll() {
+        UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
     }
 
     static func scheduleMorningReminder() {

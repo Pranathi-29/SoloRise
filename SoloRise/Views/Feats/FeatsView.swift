@@ -15,8 +15,11 @@ struct FeatsView: View {
                 SysSection(title: "BOSS RAID LOG")
                 ForEach(bosses) { boss in BossCard(boss: boss) }
                 SysSection(title: "MILESTONES").padding(.top, 4)
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(milestones) { ms in MilestoneItem(ms: ms) }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHGrid(rows: [GridItem(.fixed(78)), GridItem(.fixed(78))], spacing: 10) {
+                        ForEach(milestones) { ms in MilestoneBadge(ms: ms) }
+                    }
+                    .padding(.horizontal, 2)
                 }
             }
             .padding(14)
@@ -129,24 +132,32 @@ struct BossCard: View {
     }
 }
 
-// MARK: - Milestone
-struct MilestoneItem: View {
+// MARK: - Milestone badge (horizontal trophy shelf)
+struct MilestoneBadge: View {
     let ms: MilestoneData
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: ms.isEarned ? "checkmark.circle.fill" : "circle")
-                .font(.system(size: 12))
-                .foregroundStyle(ms.isEarned ? Color.sysGold : Color.textDim)
+        VStack(spacing: 6) {
+            ZStack {
+                Rectangle()
+                    .fill(ms.isEarned ? Color.sysGold.opacity(0.12) : Color.sysCard2)
+                    .overlay(Rectangle().stroke(
+                        ms.isEarned ? Color.sysGoldDim : Color.sysBorder, lineWidth: 1))
+                Image(systemName: ms.icon)
+                    .font(.system(size: 18, weight: .medium))
+                    .foregroundStyle(ms.isEarned ? Color.sysGold : Color.textDim)
+                    .shadow(color: ms.isEarned ? Color.sysGold.opacity(0.5) : .clear, radius: 5)
+                    .opacity(ms.isEarned ? 1 : 0.4)
+                    .symbolEffect(.bounce, value: ms.isEarned)
+            }
+            .frame(width: 54, height: 54)
+
             Text(ms.label)
-                .font(.system(size: 11, weight: .medium, design: .rounded))
+                .font(.system(size: 8, weight: .medium, design: .monospaced))
                 .foregroundStyle(ms.isEarned ? Color.sysGold : Color.textSecondary)
-                .lineLimit(2).minimumScaleFactor(0.8)
-            Spacer()
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+                .frame(width: 60)
         }
-        .padding(.horizontal, 10).padding(.vertical, 10)
-        .background(ms.isEarned ? Color.sysGold.opacity(0.05) : Color.sysCard2)
-        .overlay(Rectangle().stroke(
-            ms.isEarned ? Color.sysGold.opacity(0.3) : Color.sysBorder, lineWidth: 1))
     }
 }
 
@@ -177,15 +188,15 @@ struct BossDefinition: Identifiable {
     }
 
     static let all: [BossDefinition] = [
-        .init(id: "iron_troll", sfSymbol: "dumbbell.fill", color: .sysRed,
+        .init(id: "iron_troll", sfSymbol: "hammer.fill", color: .sysRed,
               name: "The Iron Troll",
               description: "Forge a body of iron — reach STR 190",
               threshold: 190, goldReward: 250, metric: .str),
-        .init(id: "procrastination_dragon", sfSymbol: "flame.fill", color: .sysBlue,
+        .init(id: "procrastination_dragon", sfSymbol: "lizard.fill", color: .sysBlue,
               name: "The Procrastination Dragon",
               description: "Conquer the grind — reach INT 190",
               threshold: 190, goldReward: 250, metric: .int),
-        .init(id: "chaos_monarch", sfSymbol: "crown.fill", color: .sysPurple,
+        .init(id: "chaos_monarch", sfSymbol: "tornado", color: .sysPurple,
               name: "The Chaos Monarch",
               description: "Attain total balance — reach Power 1200",
               threshold: 1200, goldReward: 1000, metric: .power),
@@ -225,23 +236,39 @@ struct BossData: Identifiable {
 struct MilestoneData: Identifiable {
     let id: String
     let label: String
+    let icon: String
     let isEarned: Bool
 
     static func all(for hunter: Hunter, hasPerfectDay: Bool) -> [MilestoneData] {
         let total = hunter.totalWorkouts + hunter.totalStudySessions +
                     hunter.totalHealthyDays + hunter.totalReadingSessions +
                     hunter.totalRecoveryDays
+        let r = hunter.rank.rawValue
+        let s = hunter.streak
         return [
-            .init(id:"m1",  label:"First quest complete", isEarned: total >= 1),
-            .init(id:"m2",  label:"First perfect day",    isEarned: hasPerfectDay),
-            .init(id:"m3",  label:"3-day streak",         isEarned: hunter.streak >= 3),
-            .init(id:"m4",  label:"7-day streak",         isEarned: hunter.streak >= 7),
-            .init(id:"m5",  label:"Reached D-Rank",       isEarned: hunter.rank.rawValue >= 1),
-            .init(id:"m6",  label:"Reached C-Rank",       isEarned: hunter.rank.rawValue >= 2),
-            .init(id:"m7",  label:"100 gold earned",      isEarned: hunter.gold >= 100),
-            .init(id:"m8",  label:"Cleared first gate",   isEarned: hunter.statVIT >= 25),
-            .init(id:"m9",  label:"Banked 3 shields",     isEarned: hunter.streakShields >= 3),
-            .init(id:"m10", label:"30-day streak",        isEarned: hunter.streak >= 30),
+            // Getting started
+            .init(id:"m1",  label:"First Quest",  icon:"flag.checkered",          isEarned: total >= 1),
+            .init(id:"m2",  label:"Perfect Day",  icon:"star.fill",               isEarned: hasPerfectDay),
+            // Quest volume
+            .init(id:"m3",  label:"10 Quests",    icon:"checklist",               isEarned: total >= 10),
+            .init(id:"m4",  label:"50 Quests",    icon:"checklist",               isEarned: total >= 50),
+            .init(id:"m5",  label:"200 Quests",   icon:"checklist",               isEarned: total >= 200),
+            // Streaks
+            .init(id:"m6",  label:"3-Day",        icon:"flame",                   isEarned: s >= 3),
+            .init(id:"m7",  label:"7-Day",        icon:"flame.fill",              isEarned: s >= 7),
+            .init(id:"m8",  label:"14-Day",       icon:"flame.circle",            isEarned: s >= 14),
+            .init(id:"m9",  label:"30-Day",       icon:"flame.circle.fill",       isEarned: s >= 30),
+            .init(id:"m10", label:"100-Day",      icon:"flame.circle.fill",       isEarned: s >= 100),
+            // Ranks
+            .init(id:"m11", label:"D-Rank",       icon:"arrow.up.circle",         isEarned: r >= 1),
+            .init(id:"m12", label:"C-Rank",       icon:"arrow.up.circle.fill",    isEarned: r >= 2),
+            .init(id:"m13", label:"B-Rank",       icon:"chevron.up.circle.fill",  isEarned: r >= 3),
+            .init(id:"m14", label:"A-Rank",       icon:"chevron.up.2",            isEarned: r >= 4),
+            .init(id:"m15", label:"S-Rank",       icon:"crown.fill",              isEarned: r >= 5),
+            // Systems
+            .init(id:"m16", label:"First Gate",   icon:"door.left.hand.open",     isEarned: hunter.statVIT >= 25),
+            .init(id:"m17", label:"3 Shields",    icon:"shield.lefthalf.filled",  isEarned: hunter.streakShields >= 3),
+            .init(id:"m18", label:"Power 300",    icon:"bolt.fill",               isEarned: hunter.power >= 300),
         ]
     }
 }

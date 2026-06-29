@@ -331,3 +331,195 @@ struct OnboardingView: View {
     }
 }
 
+// MARK: - Settings
+struct SettingsView: View {
+    let store: HunterStore
+    @Environment(\.dismiss) private var dismiss
+
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = true
+    @AppStorage("reminderHour") private var reminderHour = 9
+    @AppStorage("warningHour") private var warningHour = 20
+
+    @State private var showRewards = false
+    @State private var showEditName = false
+
+    private var appVersion: String {
+        (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0"
+    }
+
+    var body: some View {
+        ZStack {
+            Color.sysBG.ignoresSafeArea()
+            VStack(spacing: 0) {
+                header
+                LinearGradient(colors: [.clear, .sysBlue.opacity(0.5), .clear],
+                               startPoint: .leading, endPoint: .trailing).frame(height: 1)
+                ScrollView {
+                    VStack(spacing: 14) {
+                        notificationsSection
+                        rewardsSection
+                        aboutSection
+                    }
+                    .padding(16)
+                }
+            }
+        }
+        .presentationBackground(Color.sysBG)
+        .sheet(isPresented: $showRewards) { RewardsView(store: store) }
+        .sheet(isPresented: $showEditName) {
+            EditNameView(name: Binding(
+                get: { store.hunter.name },
+                set: { store.hunter.name = $0; try? store.modelContext.save() }
+            ))
+            .presentationDetents([.medium])
+        }
+    }
+
+    // MARK: Header
+    private var header: some View {
+        HStack {
+            Text("SYSTEM SETTINGS")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.sysBlue).tracking(3)
+            Spacer()
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(Color.sysCard2)
+                    .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+            }
+        }
+        .padding(.horizontal, 20).padding(.vertical, 16)
+        .background(Color.sysPanel)
+    }
+
+    // MARK: Notifications
+    private var notificationsSection: some View {
+        settingsCard("NOTIFICATIONS") {
+            Toggle(isOn: $notificationsEnabled) {
+                Text("Daily Reminders")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+            }
+            .tint(.sysBlue)
+            .onChange(of: notificationsEnabled) { _, on in
+                if on { NotificationManager.requestAuthorization() }
+                store.refreshNotifications()
+            }
+            .padding(.horizontal, 12).padding(.vertical, 10)
+
+            if notificationsEnabled {
+                rowDivider
+                hourStepper(label: "Morning reminder", hour: $reminderHour)
+                rowDivider
+                hourStepper(label: "Streak warning", hour: $warningHour)
+            }
+        }
+    }
+
+    private func hourStepper(label: String, hour: Binding<Int>) -> some View {
+        Stepper(value: hour, in: 0...23) {
+            HStack {
+                Text(label)
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                Text(formatHour(hour.wrappedValue))
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.sysBlue)
+            }
+        }
+        .tint(.sysBlue)
+        .padding(.horizontal, 12).padding(.vertical, 6)
+        .onChange(of: hour.wrappedValue) { _, _ in store.refreshNotifications() }
+    }
+
+    private func formatHour(_ h: Int) -> String {
+        let period = h < 12 ? "AM" : "PM"
+        var hr = h % 12
+        if hr == 0 { hr = 12 }
+        return "\(hr):00 \(period)"
+    }
+
+    // MARK: Rewards
+    private var rewardsSection: some View {
+        settingsCard("REWARDS & PROFILE") {
+            settingsButton("Edit Rewards", icon: "gift.fill") { showRewards = true }
+            rowDivider
+            settingsButton("Edit Hunter Name", icon: "pencil") { showEditName = true }
+        }
+    }
+
+    // MARK: About
+    private var aboutSection: some View {
+        settingsCard("ABOUT") {
+            HStack {
+                Text("SoloRise")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                Text("v\(appVersion)")
+                    .font(.system(size: 12, design: .monospaced))
+                    .foregroundStyle(Color.textSecondary)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 12)
+            rowDivider
+            Text("Rise from Shadow Fragment to Eclipse General.")
+                .font(.system(size: 11, design: .rounded))
+                .foregroundStyle(Color.textSecondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12).padding(.vertical, 10)
+        }
+    }
+
+    // MARK: Building blocks
+    private var rowDivider: some View {
+        Rectangle().fill(Color.sysBorder).frame(height: 1)
+    }
+
+    private func settingsButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 10) {
+                Image(systemName: icon)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Color.sysBlue)
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.textDim)
+            }
+            .padding(.horizontal, 12).padding(.vertical, 12)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func settingsCard<C: View>(_ title: String,
+                                       @ViewBuilder content: () -> C) -> some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.sysBlue).tracking(2)
+                Spacer()
+            }
+            .padding(.horizontal, 12).padding(.vertical, 7)
+            .background(Color.sysPanel)
+
+            Rectangle()
+                .fill(LinearGradient(colors: [.clear, .sysBlue.opacity(0.4), .clear],
+                                     startPoint: .leading, endPoint: .trailing))
+                .frame(height: 1)
+
+            VStack(spacing: 0) { content() }
+                .background(Color.sysCard2)
+        }
+        .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+    }
+}
+
