@@ -4,6 +4,9 @@ struct QuestsView: View {
     let store: HunterStore
     @State private var showReward: QuestDefinition? = nil
     @State private var claimCounts: [QuestID: Int] = [:]
+    @State private var nudgeQuest: QuestID? = nil
+    @State private var reflectionText: String = ""
+    @State private var editingReflection: Bool = false
 
     private let buffs: [(label: String, sfSymbol: String, color: Color, keyPath: WritableKeyPath<DailyLog, Bool>)] = [
         ("Hydration",    "drop.fill",  .sysGreen,  \.waterBuff),
@@ -14,6 +17,11 @@ struct QuestsView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
+                if let nudge = store.currentNudge {
+                    nudgeBanner(nudge)
+                        .transition(.opacity)
+                        .id(store.refreshTick)
+                }
                 if allCleared {
                     allClearBanner
                         .transition(.scale(scale: 0.95).combined(with: .opacity))
@@ -52,6 +60,8 @@ struct QuestsView: View {
                         }
                     }
                 }
+                SysSection(title: "DAILY REFLECTION").padding(.top, 4)
+                reflectionCard
             }
             .padding(14)
             .animation(.easeOut(duration: 0.35), value: allCleared)
@@ -63,6 +73,105 @@ struct QuestsView: View {
                 claimCounts[q.questID, default: 0] += 1
             }
         }
+        .sheet(item: $nudgeQuest) { q in
+            if let def = QuestDefinition.all.first(where: { $0.questID == q }) {
+                MissReasonSheet(quest: def) { reason, note in
+                    store.logMissReason(q, reason: reason, note: note)
+                }
+            }
+        }
+    }
+
+    // MARK: - Daily reflection
+    private var reflectionCard: some View {
+        let answered = store.todaysReflection
+        let showInput = editingReflection || answered == nil
+        return VStack(alignment: .leading, spacing: 10) {
+            Text(store.todaysPrompt)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.textPrimary)
+
+            if showInput {
+                TextField("", text: $reflectionText,
+                          prompt: Text("Jot a line…").foregroundColor(.textDim), axis: .vertical)
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundStyle(.white)
+                    .lineLimit(1...4)
+                    .padding(.horizontal, 10).padding(.vertical, 10)
+                    .background(Color.sysBG)
+                    .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
+                Button {
+                    store.saveReflection(reflectionText)
+                    editingReflection = false
+                } label: {
+                    Text("SAVE")
+                        .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(2)
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity).padding(.vertical, 10)
+                        .background(reflectionText.trimmingCharacters(in: .whitespaces).isEmpty
+                                    ? Color.sysBorder2 : Color.sysBlue)
+                }
+                .buttonStyle(.plain)
+                .disabled(reflectionText.trimmingCharacters(in: .whitespaces).isEmpty)
+            } else if let r = answered {
+                Text(r.answer)
+                    .font(.system(size: 12, design: .rounded))
+                    .foregroundStyle(Color.textSecondary)
+                HStack(spacing: 6) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 11)).foregroundStyle(Color.sysBlue)
+                    Text("Reflected today")
+                        .font(.system(size: 9, design: .monospaced)).foregroundStyle(Color.sysBlue)
+                    Spacer()
+                    Button { reflectionText = r.answer; editingReflection = true } label: {
+                        Text("EDIT")
+                            .font(.system(size: 9, weight: .bold, design: .monospaced))
+                            .foregroundStyle(Color.textSecondary).tracking(1)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(14)
+        .background(Color.sysCard2)
+        .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+        .id(store.refreshTick)
+    }
+
+    // MARK: - Miss nudge banner
+    private func nudgeBanner(_ id: QuestID) -> some View {
+        let def = QuestDefinition.all.first { $0.questID == id }
+        let days = store.missedDays(id)
+        return HStack(spacing: 12) {
+            ZStack {
+                Rectangle().fill(Color.sysGold.opacity(0.1)).frame(width: 36, height: 36)
+                Image(systemName: def?.sfSymbol ?? "questionmark")
+                    .font(.system(size: 17, weight: .medium))
+                    .foregroundStyle(Color.sysGold)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text("\(def?.name ?? "A quest") · \(days) days")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                Text("Tap to note what's getting in the way")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(Color.textSecondary)
+            }
+            Spacer()
+            Button { store.dismissNudge(id) } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.textDim)
+                    .frame(width: 26, height: 26)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(Color.sysGold.opacity(0.06))
+        .overlay(Rectangle().stroke(Color.sysGoldDim, lineWidth: 1))
+        .overlay(alignment: .leading) { Rectangle().fill(Color.sysGold).frame(width: 3) }
+        .contentShape(Rectangle())
+        .onTapGesture { nudgeQuest = id }
     }
 
     private var allCleared: Bool {
@@ -281,5 +390,80 @@ struct BuffBadge: View {
         .contentShape(Rectangle())
         .onTapGesture { onToggle() }
         .animation(.easeOut(duration: 0.2), value: isOn)
+    }
+}
+
+// MARK: - "Why did I miss" reason sheet
+struct MissReasonSheet: View {
+    let quest: QuestDefinition
+    let onLog: (String, String) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selected: MissReasonOption? = nil
+    @State private var note: String = ""
+
+    var body: some View {
+        ZStack {
+            Color.sysBG.ignoresSafeArea()
+            VStack(spacing: 18) {
+                VStack(spacing: 10) {
+                    Image(systemName: quest.sfSymbol)
+                        .font(.system(size: 34, weight: .medium))
+                        .foregroundStyle(quest.questID.color)
+                    Text("WHAT'S GETTING IN THE WAY?")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.sysBlue).tracking(2)
+                        .multilineTextAlignment(.center)
+                    Text("You haven't done \(quest.name) in a few days. No judgment — noting it helps you spot the pattern.")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Color.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 10)
+                }
+                .padding(.top, 24)
+
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(MissReasonOption.allCases) { opt in
+                        let isSel = selected == opt
+                        Button { selected = opt } label: {
+                            Text(opt.rawValue)
+                                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                                .foregroundStyle(isSel ? .black : Color.textPrimary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(isSel ? Color.sysBlue : Color.sysCard2)
+                                .overlay(Rectangle().stroke(
+                                    isSel ? Color.sysBlue : Color.sysBorder, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+
+                TextField("", text: $note,
+                          prompt: Text("Add a note (optional)").foregroundColor(.textDim))
+                    .font(.system(size: 13, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12).padding(.vertical, 12)
+                    .background(Color.sysCard2)
+                    .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
+
+                Spacer()
+
+                Button {
+                    onLog(selected?.rawValue ?? "Other", note)
+                    dismiss()
+                } label: {
+                    Text("LOG IT")
+                        .font(.system(size: 12, weight: .bold, design: .monospaced))
+                        .tracking(3).foregroundStyle(.black)
+                        .frame(maxWidth: .infinity).padding(.vertical, 15)
+                        .background(selected == nil ? Color.sysBorder2 : Color.sysBlue)
+                }
+                .buttonStyle(.plain)
+                .disabled(selected == nil)
+            }
+            .padding(20)
+        }
+        .presentationDetents([.medium, .large])
+        .presentationBackground(Color.sysBG)
     }
 }

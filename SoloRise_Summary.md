@@ -211,6 +211,10 @@ real reward.
 - [x] All-clear banner on Quests tab when all 5 done
 - [x] **Local notifications** — repeating reminder + per-day streak-warning (cancelled when the day's done); `NotificationManager` in HunterStore, permission asked after onboarding
 - [x] **Settings screen** (`SettingsView`, gear on Hunter tab) — notifications on/off + reminder/warning times (`@AppStorage`), edit rewards, edit name, about/version
+- [x] **"Why did I miss" nudge** — when a quest goes 3 consecutive days un-done, a non-blocking gold banner on Quests offers to log why (preset reasons + optional note), one quest at a time, once per miss-episode (`currentNudge` / `MissReasonSheet`)
+- [x] **Insights page** (`InsightsView`, from Feats) — current/longest streak, total quests, gold; per-quest times-done + last-done; "why I missed" tally + recent log. Gives the `total*` counters a real purpose.
+- [x] **Daily reflection** — prompt-of-the-day on the Quests tab, one-line answer, stored in `Hunter.reflections`
+- [x] **Weekly AI coaching** — provider-agnostic `AICoach` + `GeminiCoach` (free tier; Claude-swappable), key in Keychain (Settings → AI Coach), Weekly Coaching panel in Insights sends the week's reflections + data → coaching summary with suggestions (`HunterStore.buildWeeklyContext` / `requestWeeklyCoaching`)
 - [x] **First-launch onboarding** — set hunter name + 5 real-life rewards
 - [x] **Reward Vault** — gold sink: claim real-life rewards per rank (Locked / CLAIM / CLAIMED), editable
 - [x] Rank-up overlay surfaces the unlocked real-life reward
@@ -227,18 +231,15 @@ real reward.
 
 ### High priority
 - [ ] **D–S rank images** — user has the art; drop `rank_d`…`rank_s` into `Assets.xcassets` (code already references the names).
-- [ ] **"Why did I miss" feature (planned)** — a future feature to surface reasons for missed days and help with consistency. Pure accumulation was chosen partly to keep the per-day `DailyLog` history clean for this analysis.
 
 ### Medium priority
 - [ ] **Build verification** — all recent work was done on Windows; project hasn't been compiled. Needs a build in the iOS simulator to confirm.
 - [ ] **Boss-slain celebration** — slaying a boss currently just adds gold silently; a popup/haptic moment would make it land.
-- [ ] **Legacy counters still exist** — `total*` counters on `Hunter` are now only used for the "first quest" milestone; could be removed once nothing else needs them.
 - [ ] **Rank-down decision** — uncompleting quests can drop a rank (−50 gold) if a stat falls below the previous threshold (`checkRankDown`). Rare, but ranks usually feel permanent; consider removing it.
 
 ### Nice to have
 - [ ] **Expand milestones** — currently an arbitrary 10; deferred. Could broaden coverage + add small gold rewards.
 - [ ] **Micro-celebrations** — gate gold, boss gold, and reward claims are awarded silently; a toast + haptic would make them land.
-- [ ] **Quest history stats** — all-time totals, longest streak, etc. on the Feats tab
 - [ ] **Sound effects** — subtle audio on quest complete and rank-up
 - [ ] **Widget** — iOS home screen widget showing today's quest progress ring
 - [ ] **iCloud sync** — SwiftData supports CloudKit; add so data persists across reinstalls
@@ -251,12 +252,14 @@ real reward.
 - `MagicCircleView.swift` emptied (content removed; safe to delete from the Xcode project)
 - `HunterCharacterView.swift` trimmed — dead `HunterCharacterCard` removed; it still holds the **live** `HunterRankImage` + `RankUpCharacterView`, so keep the file
 - Dead code removed from `HunterStore`: `lastClearedQuest`, `recentLogs(days:)`
-- **Fresh install recommended after the rebalance** — added SwiftData fields (`Hunter.streakShields`, `bossClaimMask`, `gateClaimMask`, `hasOnboarded`, `rankRewardsData`; `DailyLog.shieldEarned`) all have defaults so migration shouldn't crash, but existing save data holds old inflated stat values (from the +8–12 era) that behave oddly against the new +1 thresholds, would skip onboarding, and would retroactively pay out all already-cleared gates' gold at once. Delete the app from the simulator before testing.
+- **Fresh install recommended after the rebalance** — added SwiftData fields (`Hunter.streakShields`, `bossClaimMask`, `gateClaimMask`, `maxStreak`, `hasOnboarded`, `rankRewardsData`, `questLastDoneData`, `questLastNudgedData`, `missLogData`, `reflectionsData`, `coachingSummary`, `coachingDate`; `DailyLog.shieldEarned`) all have defaults so migration shouldn't crash, but existing save data holds old inflated stat values (from the +8–12 era) that behave oddly against the new +1 thresholds, would skip onboarding, and would retroactively pay out all already-cleared gates' gold at once. Delete the app from the simulator before testing.
 - **Reward title editing** persists on each keystroke (`RewardsView.titleBinding` → `setRewardTitle`); if focus feels janky on device, switch to save-on-submit.
-- **Not yet compiled** — all recent work done on Windows; needs an Xcode/simulator build to verify.
+- **Not yet compiled** — recent work done on Windows; needs an Xcode/simulator build to verify.
+- **`AICoach.swift` is a NEW FILE** — must be added to the Xcode target (drag into the project, check the `SoloRise` target). Until then the build fails with `GeminiCoach`/`KeychainHelper`/`AICoachError` "not found in scope".
+- **Gemini setup** — get a free key at Google AI Studio → Settings → AI Coach → paste → Save. If the request 404s, the model name has changed; update `GeminiCoach.model` (currently `gemini-2.0-flash`) to the current free model. The key lives in Keychain (fine for personal use; for public distribution route via a backend proxy so it isn't shippable in the binary).
 
 ---
 
 *Last updated: June 2026 — quest rename/icons, +1 stat rebalance (~1yr E→S), streak shields,
 stat-gated gates, all-clear banner, violet completion sweep, Feats rework (gold-paying stat/rank
-bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations, settings screen.*
+bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations, settings screen, "why did I miss" nudge + Insights page, daily reflection + weekly Gemini AI coaching.*

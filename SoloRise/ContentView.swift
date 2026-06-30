@@ -342,6 +342,7 @@ struct SettingsView: View {
 
     @State private var showRewards = false
     @State private var showEditName = false
+    @State private var apiKeyInput = ""
 
     private var appVersion: String {
         (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? "1.0"
@@ -357,6 +358,7 @@ struct SettingsView: View {
                 ScrollView {
                     VStack(spacing: 14) {
                         notificationsSection
+                        aiCoachSection
                         rewardsSection
                         aboutSection
                     }
@@ -441,6 +443,54 @@ struct SettingsView: View {
         var hr = h % 12
         if hr == 0 { hr = 12 }
         return "\(hr):00 \(period)"
+    }
+
+    // MARK: AI Coach
+    private var aiCoachSection: some View {
+        settingsCard("AI COACH") {
+            if store.hasAPIKey {
+                HStack(spacing: 10) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 14)).foregroundStyle(Color.sysGreen)
+                    Text("Gemini key saved")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                    Spacer()
+                    Button("Remove") { store.clearAPIKey() }
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(Color.sysRed)
+                        .buttonStyle(.plain)
+                }
+                .padding(.horizontal, 12).padding(.vertical, 12)
+            } else {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Paste your free Gemini API key to enable weekly coaching.")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Color.textSecondary)
+                    SecureField("", text: $apiKeyInput,
+                                prompt: Text("Gemini API key").foregroundColor(.textDim))
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10).padding(.vertical, 10)
+                        .background(Color.sysBG)
+                        .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
+                    Button {
+                        store.saveAPIKey(apiKeyInput)
+                        apiKeyInput = ""
+                    } label: {
+                        Text("SAVE KEY")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(2)
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity).padding(.vertical, 10)
+                            .background(apiKeyInput.trimmingCharacters(in: .whitespaces).isEmpty
+                                        ? Color.sysBorder2 : Color.sysBlue)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(apiKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+                .padding(12)
+            }
+        }
     }
 
     // MARK: Rewards

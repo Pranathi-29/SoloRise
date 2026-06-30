@@ -1,8 +1,20 @@
 import Foundation
 import SwiftUI
 
-enum QuestID: String, CaseIterable {
+enum QuestID: String, CaseIterable, Identifiable {
     case workout, nutrition, study, reading, recovery
+    var id: String { rawValue }
+}
+
+// Preset answers for the "why did I miss" nudge.
+enum MissReasonOption: String, CaseIterable, Identifiable {
+    case tooBusy = "Too busy"
+    case lowEnergy = "Low energy"
+    case forgot = "Forgot"
+    case unwell = "Unwell"
+    case lostMotivation = "Lost motivation"
+    case other = "Other"
+    var id: String { rawValue }
 }
 
 struct QuestDefinition: Identifiable {

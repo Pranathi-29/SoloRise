@@ -8,10 +8,13 @@ struct FeatsView: View {
         MilestoneData.all(for: store.hunter, hasPerfectDay: store.hasPerfectDay)
     }
 
+    @State private var showInsights = false
+
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
                 raidsHeader
+                insightsButton
                 SysSection(title: "BOSS RAID LOG")
                 ForEach(bosses) { boss in BossCard(boss: boss) }
                 SysSection(title: "MILESTONES").padding(.top, 4)
@@ -25,6 +28,28 @@ struct FeatsView: View {
             .padding(14)
         }
         .background(Color.clear)
+        .sheet(isPresented: $showInsights) { InsightsView(store: store) }
+    }
+
+    private var insightsButton: some View {
+        Button { showInsights = true } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "chart.bar.xaxis")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Color.sysBlue)
+                Text("VIEW INSIGHTS")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.textPrimary).tracking(1.5)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12)).foregroundStyle(Color.textDim)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 12)
+            .background(Color.sysCard2)
+            .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     private var raidsHeader: some View {
@@ -270,5 +295,264 @@ struct MilestoneData: Identifiable {
             .init(id:"m17", label:"3 Shields",    icon:"shield.lefthalf.filled",  isEarned: hunter.streakShields >= 3),
             .init(id:"m18", label:"Power 300",    icon:"bolt.fill",               isEarned: hunter.power >= 300),
         ]
+    }
+}
+
+// MARK: - Insights
+struct InsightsView: View {
+    let store: HunterStore
+    @Environment(\.dismiss) private var dismiss
+    @State private var coachingLoading = false
+    @State private var coachingError: String? = nil
+
+    private var reasonTally: [(reason: String, count: Int)] {
+        Dictionary(grouping: store.hunter.missLog, by: { $0.reason })
+            .mapValues { $0.count }
+            .sorted { $0.value > $1.value }
+            .map { (reason: $0.key, count: $0.value) }
+    }
+
+    private var recentMisses: [MissReason] {
+        store.hunter.missLog.sorted { $0.date > $1.date }.prefix(8).map { $0 }
+    }
+
+    var body: some View {
+        ZStack {
+            Color.sysBG.ignoresSafeArea()
+            VStack(spacing: 0) {
+                header
+                LinearGradient(colors: [.clear, .sysBlue.opacity(0.5), .clear],
+                               startPoint: .leading, endPoint: .trailing).frame(height: 1)
+                ScrollView {
+                    VStack(spacing: 14) {
+                        coachingSection
+                        overallCard
+                        byQuestSection
+                        reasonsSection
+                    }
+                    .padding(16)
+                }
+            }
+        }
+        .presentationBackground(Color.sysBG)
+    }
+
+    private var header: some View {
+        HStack {
+            Text("INSIGHTS")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.sysBlue).tracking(3)
+            Spacer()
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Color.textSecondary)
+                    .frame(width: 30, height: 30)
+                    .background(Color.sysCard2)
+                    .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+            }
+        }
+        .padding(.horizontal, 20).padding(.vertical, 16)
+        .background(Color.sysPanel)
+    }
+
+    private var coachingSection: some View {
+        VStack(spacing: 0) {
+            sectionHeader("WEEKLY COACHING")
+            VStack(alignment: .leading, spacing: 10) {
+                if !store.hunter.coachingSummary.isEmpty {
+                    Text(store.hunter.coachingSummary)
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundStyle(Color.textPrimary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if let d = store.hunter.coachingDate {
+                        Text("Generated \(d.formatted(date: .abbreviated, time: .shortened))")
+                            .font(.system(size: 8, design: .monospaced))
+                            .foregroundStyle(Color.textDim)
+                    }
+                }
+                if let err = coachingError {
+                    Text(err)
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Color.sysRed)
+                }
+                if store.hasAPIKey {
+                    Button { Task { await runCoaching() } } label: {
+                        HStack(spacing: 8) {
+                            if coachingLoading {
+                                ProgressView().tint(.black)
+                            } else {
+                                Image(systemName: "sparkles").font(.system(size: 12))
+                            }
+                            Text(store.hunter.coachingSummary.isEmpty
+                                 ? "GET THIS WEEK'S COACHING" : "REFRESH COACHING")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(1)
+                        }
+                        .foregroundStyle(.black)
+                        .frame(maxWidth: .infinity).padding(.vertical, 11)
+                        .background(coachingLoading ? Color.sysBorder2 : Color.sysBlue)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(coachingLoading)
+                } else {
+                    Text("Add your Gemini key in Settings → AI Coach to enable coaching.")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(Color.textSecondary)
+                }
+            }
+            .padding(12)
+            .background(Color.sysCard2)
+        }
+        .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+        .id(store.refreshTick)
+    }
+
+    @MainActor
+    private func runCoaching() async {
+        coachingError = nil
+        coachingLoading = true
+        do {
+            try await store.requestWeeklyCoaching()
+        } catch {
+            coachingError = error.localizedDescription
+        }
+        coachingLoading = false
+    }
+
+    private var overallCard: some View {
+        HStack(spacing: 0) {
+            statCell("\(store.hunter.streak)", "CURRENT")
+            divider
+            statCell("\(store.hunter.maxStreak)", "LONGEST")
+            divider
+            statCell("\(store.totalQuestsDone)", "QUESTS")
+            divider
+            statCell("\(store.hunter.gold)", "GOLD")
+        }
+        .background(Color.sysCard2)
+        .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+    }
+
+    private func statCell(_ value: String, _ label: String) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.system(size: 18, weight: .bold, design: .monospaced))
+                .foregroundStyle(.white)
+            Text(label)
+                .font(.system(size: 8, design: .monospaced))
+                .foregroundStyle(Color.textSecondary).tracking(1)
+        }
+        .frame(maxWidth: .infinity).padding(.vertical, 14)
+    }
+
+    private var divider: some View { Rectangle().fill(Color.sysBorder).frame(width: 1) }
+    private var rowDivider: some View { Rectangle().fill(Color.sysBorder).frame(height: 1) }
+
+    private var byQuestSection: some View {
+        VStack(spacing: 0) {
+            sectionHeader("BY QUEST")
+            VStack(spacing: 0) {
+                ForEach(Array(QuestDefinition.all.enumerated()), id: \.element.id) { i, def in
+                    questRow(def)
+                    if i < QuestDefinition.all.count - 1 { rowDivider }
+                }
+            }
+            .background(Color.sysCard2)
+        }
+        .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+    }
+
+    private func questRow(_ def: QuestDefinition) -> some View {
+        let overdue = store.missedDays(def.questID) >= HunterStore.missNudgeThreshold
+        return HStack(spacing: 12) {
+            Image(systemName: def.sfSymbol)
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(def.questID.color)
+                .frame(width: 28)
+            Text(def.name)
+                .font(.system(size: 13, weight: .semibold, design: .rounded))
+                .foregroundStyle(Color.textPrimary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 2) {
+                Text("\(store.timesDone(def.questID))×")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white)
+                Text(store.lastDoneDescription(def.questID))
+                    .font(.system(size: 8, design: .monospaced))
+                    .foregroundStyle(overdue ? Color.sysGold : Color.textSecondary)
+            }
+        }
+        .padding(.horizontal, 12).padding(.vertical, 11)
+    }
+
+    private var reasonsSection: some View {
+        VStack(spacing: 0) {
+            sectionHeader("WHY I MISSED")
+            VStack(spacing: 0) {
+                if store.hunter.missLog.isEmpty {
+                    Text("Nothing logged yet. If you skip a quest for 3 days, you can note why — and it shows up here.")
+                        .font(.system(size: 11, design: .rounded))
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                } else {
+                    if let top = reasonTally.first {
+                        HStack {
+                            Text("Most common")
+                                .font(.system(size: 11, design: .rounded))
+                                .foregroundStyle(Color.textSecondary)
+                            Spacer()
+                            Text("\(top.reason) · \(top.count)×")
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundStyle(Color.sysGold)
+                        }
+                        .padding(.horizontal, 12).padding(.vertical, 10)
+                        rowDivider
+                    }
+                    ForEach(recentMisses) { entry in
+                        reasonRow(entry)
+                        if entry.id != recentMisses.last?.id { rowDivider }
+                    }
+                }
+            }
+            .background(Color.sysCard2)
+        }
+        .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+    }
+
+    private func reasonRow(_ entry: MissReason) -> some View {
+        let questName = QuestDefinition.all.first { $0.questID.rawValue == entry.questRaw }?.name ?? entry.questRaw
+        return VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(questName)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                Spacer()
+                Text(entry.reason)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(Color.sysGold)
+            }
+            if !entry.note.isEmpty {
+                Text(entry.note)
+                    .font(.system(size: 10, design: .rounded))
+                    .foregroundStyle(Color.textSecondary)
+            }
+            Text(entry.date.formatted(date: .abbreviated, time: .omitted))
+                .font(.system(size: 8, design: .monospaced))
+                .foregroundStyle(Color.textDim)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 12).padding(.vertical, 10)
+    }
+
+    private func sectionHeader(_ title: String) -> some View {
+        HStack {
+            Text(title)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.sysBlue).tracking(2)
+            Spacer()
+        }
+        .padding(.horizontal, 12).padding(.vertical, 7)
+        .background(Color.sysPanel)
     }
 }

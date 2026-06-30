@@ -11,6 +11,23 @@ struct RankReward: Codable, Identifiable {
     var id: Int { rankRaw }
 }
 
+// A logged answer to "why haven't you done this quest lately?" — feeds the Insights view.
+struct MissReason: Codable, Identifiable {
+    var id: UUID = UUID()
+    var questRaw: String
+    var date: Date
+    var reason: String
+    var note: String
+}
+
+// A daily reflection answer — accumulates as input for the weekly AI coaching summary.
+struct Reflection: Codable, Identifiable {
+    var id: UUID = UUID()
+    var date: Date
+    var prompt: String
+    var answer: String
+}
+
 enum HunterRank: Int, Codable, CaseIterable {
     case e = 0, d, c, b, a, s
 
@@ -30,10 +47,39 @@ final class Hunter {
     var rankRaw: Int
     var gold: Int
     var streak: Int
+    var maxStreak: Int = 0       // longest streak ever reached (for Insights)
     var streakShields: Int = 0
     var bossClaimMask: Int = 0   // bitmask of bosses whose gold reward has been claimed
     var gateClaimMask: Int = 0   // bitmask of gates whose gold reward has been claimed
     var lastActiveDate: Date?
+
+    // Per-quest "why I missed" tracking, all JSON-encoded (keyed by QuestID.rawValue):
+    var questLastDoneData: Data = Data()    // [String: Date] — last completion per quest
+    var questLastNudgedData: Data = Data()  // [String: Date] — last miss-nudge per quest
+    var missLogData: Data = Data()          // [MissReason] — logged skip reasons
+
+    var questLastDone: [String: Date] {
+        get { (try? JSONDecoder().decode([String: Date].self, from: questLastDoneData)) ?? [:] }
+        set { questLastDoneData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+    }
+    var questLastNudged: [String: Date] {
+        get { (try? JSONDecoder().decode([String: Date].self, from: questLastNudgedData)) ?? [:] }
+        set { questLastNudgedData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+    }
+    var missLog: [MissReason] {
+        get { (try? JSONDecoder().decode([MissReason].self, from: missLogData)) ?? [] }
+        set { missLogData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+    }
+
+    // Daily reflections + the latest weekly AI coaching summary
+    var reflectionsData: Data = Data()
+    var coachingSummary: String = ""
+    var coachingDate: Date?
+
+    var reflections: [Reflection] {
+        get { (try? JSONDecoder().decode([Reflection].self, from: reflectionsData)) ?? [] }
+        set { reflectionsData = (try? JSONEncoder().encode(newValue)) ?? Data() }
+    }
 
     // First-launch onboarding (name + real-life rewards) completed?
     var hasOnboarded: Bool = false

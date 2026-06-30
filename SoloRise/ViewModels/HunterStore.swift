@@ -164,6 +164,11 @@ final class HunterStore {
         case .recovery:  hunter.totalRecoveryDays += 1
         }
 
+        // Record completion for miss-tracking (resets this quest's nudge episode).
+        var lastDone = hunter.questLastDone
+        lastDone[id.rawValue] = Calendar.current.startOfDay(for: .now)
+        hunter.questLastDone = lastDone
+
         if isFirstOfDay { registerActiveDay() }
         checkRankUp()
         checkBosses()
@@ -171,6 +176,208 @@ final class HunterStore {
         updateTodayStreakWarning()
         save()
         return true
+    }
+
+    // MARK: - "Why did I miss" nudge
+    static let missNudgeThreshold = 3   // consecutive days un-done before we ask
+
+    /// The single most-overdue quest worth nudging about right now (one at a time),
+    /// or nil. A quest qualifies if it's been un-done ≥ threshold days and hasn't already
+    /// been nudged this miss-episode (i.e. since it was last completed).
+    var currentNudge: QuestID? {
+        let cal = Calendar.current
+        let today = cal.startOfDay(for: .now)
+        let lastDone = hunter.questLastDone
+        let lastNudged = hunter.questLastNudged
+        var best: (id: QuestID, days: Int)? = nil
+        for q in QuestID.allCases {
+            guard let done = lastDone[q.rawValue] else { continue }  // never done → skip
+            let missed = cal.dateComponents([.day], from: cal.startOfDay(for: done), to: today).day ?? 0
+            guard missed >= Self.missNudgeThreshold else { continue }
+            if let nudged = lastNudged[q.rawValue],
+               cal.startOfDay(for: nudged) > cal.startOfDay(for: done) { continue }  // already asked
+            if best == nil || missed > best!.days { best = (q, missed) }
+        }
+        return best?.id
+    }
+
+    func missedDays(_ id: QuestID) -> Int {
+        guard let done = hunter.questLastDone[id.rawValue] else { return 0 }
+        let cal = Calendar.current
+        return cal.dateComponents([.day], from: cal.startOfDay(for: done),
+                                  to: cal.startOfDay(for: .now)).day ?? 0
+    }
+
+    // MARK: - Daily reflections
+    static let dailyPrompts: [String] = [
+        "What's one small win you had today?",
+        "Which quest felt hardest today, and why?",
+        "What made it easier to show up today?",
+        "What's one thing you'll do differently tomorrow?",
+        "Which habit are you most proud of lately?",
+        "What got in the way today?",
+        "How has your energy been lately?",
+        "What's pulling you toward your next reward?",
+        "Which quest do you keep avoiding — any idea why?",
+        "What would make tomorrow's training easier?",
+        "What's one reason today's effort was worth it?",
+        "How do you feel about your progress this week?",
+        "What's a tiny adjustment that could protect your streak?",
+        "What reward are you working toward right now?",
+    ]
+
+    var todaysPrompt: String {
+        let day = Calendar.current.ordinality(of: .day, in: .era, for: .now) ?? 0
+        return Self.dailyPrompts[day % Self.dailyPrompts.count]
+    }
+
+    var todaysReflection: Reflection? {
+        let today = Calendar.current.startOfDay(for: .now)
+        return hunter.reflections.first { Calendar.current.isDate($0.date, inSameDayAs: today) }
+    }
+
+    // MARK: - AI coaching
+    var hasAPIKey: Bool { KeychainHelper.loadKey() != nil }
+
+    func saveAPIKey(_ key: String) {
+        KeychainHelper.saveKey(key)
+        refreshTick += 1
+    }
+
+    func clearAPIKey() {
+        KeychainHelper.deleteKey()
+        refreshTick += 1
+    }
+
+    @MainActor
+    func requestWeeklyCoaching() async throws {
+        guard let key = KeychainHelper.loadKey() else { throw AICoachError.missingKey }
+        let coach = GeminiCoach(apiKey: key)
+        let summary = try await coach.weeklyCoaching(context: buildWeeklyContext())
+        hunter.coachingSummary = summary
+        hunter.coachingDate = .now
+        refreshTick += 1
+        save()
+    }
+
+    /// Assembles the past week's data + reflections into a plain-text prompt for the coach.
+    func buildWeeklyContext() -> String {
+        let cal = Calendar.current
+        let weekAgo = cal.date(byAdding: .day, value: -7, to: .now) ?? .now
+        let desc = FetchDescriptor<DailyLog>(
+            predicate: #Predicate { $0.date >= weekAgo },
+            sortBy: [SortDescriptor(\.date)]
+        )
+        let logs = (try? modelContext.fetch(desc)) ?? []
+
+        var counts: [QuestID: Int] = [:]
+        for log in logs {
+            if log.workoutDone   { counts[.workout, default: 0] += 1 }
+            if log.nutritionDone { counts[.nutrition, default: 0] += 1 }
+            if log.studyDone     { counts[.study, default: 0] += 1 }
+            if log.readingDone   { counts[.reading, default: 0] += 1 }
+            if log.recoveryDone  { counts[.recovery, default: 0] += 1 }
+        }
+
+        let rankLetters = ["E", "D", "C", "B", "A", "S"]
+        var lines: [String] = []
+        lines.append("Hunter: \(hunter.name), Rank \(hunter.rank.label) (\(hunter.rank.title)).")
+        lines.append("Stats — STR \(hunter.statSTR), INT \(hunter.statINT), VIT \(hunter.statVIT), WIS \(hunter.statWIS); Power \(hunter.power).")
+        lines.append("Streak \(hunter.streak) days (longest \(hunter.maxStreak)); Gold \(hunter.gold); Shields \(hunter.streakShields).")
+        lines.append("")
+        lines.append("Quest completions this week (out of 7 days):")
+        for q in QuestID.allCases {
+            let name = QuestDefinition.all.first { $0.questID == q }?.name ?? q.rawValue
+            lines.append("- \(name): \(counts[q] ?? 0)/7")
+        }
+
+        let goals = hunter.rankRewards.filter { !$0.title.isEmpty }
+        if !goals.isEmpty {
+            lines.append("")
+            lines.append("Goals (real-life rewards they're working toward):")
+            for g in goals {
+                let letter = rankLetters.indices.contains(g.rankRaw) ? rankLetters[g.rankRaw] : "?"
+                lines.append("- \(letter)-Rank: \(g.title)\(g.claimed ? " (already claimed)" : "")")
+            }
+        }
+
+        let misses = hunter.missLog.filter { $0.date >= weekAgo }
+        if !misses.isEmpty {
+            lines.append("")
+            lines.append("Logged skip reasons this week:")
+            for m in misses {
+                let name = QuestDefinition.all.first { $0.questID.rawValue == m.questRaw }?.name ?? m.questRaw
+                lines.append("- \(name): \(m.reason)\(m.note.isEmpty ? "" : " — \(m.note)")")
+            }
+        }
+
+        let refs = hunter.reflections.filter { $0.date >= weekAgo }
+        if !refs.isEmpty {
+            lines.append("")
+            lines.append("Daily reflections this week:")
+            for r in refs where !r.answer.isEmpty {
+                lines.append("- \"\(r.prompt)\" → \(r.answer)")
+            }
+        }
+        return lines.joined(separator: "\n")
+    }
+
+    func saveReflection(_ answer: String) {
+        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        let today = Calendar.current.startOfDay(for: .now)
+        var refs = hunter.reflections
+        if let idx = refs.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
+            refs[idx].answer = trimmed
+            refs[idx].prompt = todaysPrompt
+        } else {
+            refs.append(Reflection(date: today, prompt: todaysPrompt, answer: trimmed))
+        }
+        hunter.reflections = refs
+        refreshTick += 1
+        save()
+    }
+
+    // MARK: - Insights helpers
+    func timesDone(_ id: QuestID) -> Int {
+        switch id {
+        case .workout:   return hunter.totalWorkouts
+        case .study:     return hunter.totalStudySessions
+        case .nutrition: return hunter.totalHealthyDays
+        case .reading:   return hunter.totalReadingSessions
+        case .recovery:  return hunter.totalRecoveryDays
+        }
+    }
+
+    var totalQuestsDone: Int {
+        hunter.totalWorkouts + hunter.totalStudySessions + hunter.totalHealthyDays +
+        hunter.totalReadingSessions + hunter.totalRecoveryDays
+    }
+
+    func lastDoneDescription(_ id: QuestID) -> String {
+        guard hunter.questLastDone[id.rawValue] != nil else { return "Never" }
+        let days = missedDays(id)
+        if days <= 0 { return "Today" }
+        if days == 1 { return "Yesterday" }
+        return "\(days)d ago"
+    }
+
+    func logMissReason(_ id: QuestID, reason: String, note: String) {
+        var log = hunter.missLog
+        log.append(MissReason(questRaw: id.rawValue, date: .now, reason: reason,
+                              note: note.trimmingCharacters(in: .whitespacesAndNewlines)))
+        hunter.missLog = log
+        markNudged(id)
+    }
+
+    func dismissNudge(_ id: QuestID) { markNudged(id) }
+
+    private func markNudged(_ id: QuestID) {
+        var nudged = hunter.questLastNudged
+        nudged[id.rawValue] = .now
+        hunter.questLastNudged = nudged
+        refreshTick += 1
+        save()
     }
 
     // Award a gate's one-time gold reward the first time it's cleared.
@@ -207,6 +414,7 @@ final class HunterStore {
             hunter.streak = 1
         }
         hunter.lastActiveDate = today
+        hunter.maxStreak = max(hunter.maxStreak, hunter.streak)
     }
 
     // Award a boss's gold once, the first time its goal is met.
@@ -247,14 +455,19 @@ final class HunterStore {
         save()
     }
 
-    // Bonus quests don't touch stats. Completing all 3 in a day banks one
-    // Streak Shield (capped at 3). Latched per-day so toggling off won't revoke it.
+    // Bonus quests don't touch stats. Completing all 3 in a day banks one Streak Shield
+    // (capped at 3); undoing one before day's end takes today's shield back.
     static let maxShields = 3
     private func updateShield() {
         let allBonusDone = todayLog.waterBuff && todayLog.supplementsBuff && todayLog.proteinBuff
-        if allBonusDone && !todayLog.shieldEarned {
+        if allBonusDone && !todayLog.shieldEarned && hunter.streakShields < Self.maxShields {
+            // Banked today's shield.
             todayLog.shieldEarned = true
-            hunter.streakShields = min(Self.maxShields, hunter.streakShields + 1)
+            hunter.streakShields += 1
+        } else if !allBonusDone && todayLog.shieldEarned {
+            // Undid a bonus quest after banking today's shield — revoke it.
+            todayLog.shieldEarned = false
+            hunter.streakShields = max(0, hunter.streakShields - 1)
         }
     }
 
