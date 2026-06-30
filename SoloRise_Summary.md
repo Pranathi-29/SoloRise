@@ -38,9 +38,9 @@ SoloRise/
 │   ├── Quests/
 │   │   └── QuestsView.swift          # Daily quest list + all-clear banner + bonus quests/shields
 │   ├── Gates/
-│   │   └── GatesView.swift           # Stat-gated gate registry
+│   │   └── GatesView.swift           # ⚠️ UNUSED (gates removed) — safe to delete from project
 │   ├── Feats/
-│   │   └── FeatsView.swift           # Stat/rank bosses (BossDefinition) + gold-paying, small milestones
+│   │   └── FeatsView.swift           # Bosses + milestone trophy shelf + JournalView (reflection/insights/coaching)
 │   ├── Overlays/
 │   │   └── QuestClearSheet.swift     # Quest completion sheet
 │   ├── Components/
@@ -62,10 +62,10 @@ SoloRise/
 
 | Tab | What it does |
 |-----|-------------|
-| **Hunter** | Character profile, stats, power bar, promotion requirements, activity ring |
-| **Quests** | Daily quest checklist + all-clear banner + bonus quests (streak shields) |
-| **Gates** | Stat-gated dungeons and shadow army |
-| **Feats** | Boss raids and milestone achievements |
+| **Hunter** | Character profile, stats, power bar, promotion requirements, activity ring, rewards (gold tile), settings (gear) |
+| **Quests** | Daily quest checklist + all-clear banner + bonus quests (streak shields) + miss nudge |
+| **Journal** | Daily reflection (+3 gold) + weekly AI coaching + insights (stats, by-quest, why-I-missed) |
+| **Feats** | Boss raids and milestone trophy shelf |
 
 ---
 
@@ -122,13 +122,17 @@ the gap and **continue** the streak; a gap bigger than your shields restarts it 
 | Supplements | Took B12 / Mg |
 | Clean Eating | No junk that day |
 
-### Gates (Gates tab)
-Each gate is **stat-gated** and themed to a stat; two states only (Locked → CLEARED, no
-"ENTERED"). Forest Dungeon VIT 25 · Iron Keep STR 40 · Scholar Vault INT 40 · Frost Citadel
-WIS 65 · Inferno Rift STR 95 · Shadow Fortress WIS 130 · Monarchs Domain INT 130 · Ashborn
-Throne Power 520. Clearing a gate pays a **one-time gold reward** (50 → 500 by tier, awarded
-in `HunterStore.checkGates()` via `Hunter.gateClaimMask`). Beginners Gate is a free 0g starter.
-The card shows the requirement + gold reward while locked, "CLEARED" once met.
+### Journal (Journal tab) — replaced the old Gates tab
+`JournalView` (defined in `FeatsView.swift`) holds three stacked sections:
+- **Daily Reflection** — prompt-of-the-day + a line; first save each day grants **+3 gold**
+  (`HunterStore.saveReflection`). This replaced the gate gold and feeds the AI coach.
+- **Weekly Coaching** — Gemini summary + suggestions (see Real-Life Rewards / AI section).
+- **Insights** — current/longest streak, total quests, gold; per-quest times-done + last-done;
+  "why I missed" tally + recent log.
+
+> **Gates were removed** (the milestone trophy shelf already covers stat-threshold collecting;
+> gates were redundant). `GatesView.swift` / `GateData` / `GateCard` are now unused dead code —
+> safe to delete from the Xcode project. `Hunter.gateClaimMask` is vestigial.
 
 ### Feats (Feats tab)
 Two tiers, defined in `FeatsView.swift`:
@@ -138,7 +142,7 @@ Two tiers, defined in `FeatsView.swift`:
   `lizard.fill`) · Chaos Monarch → Power 1200 (1000g, `tornado`).
 - **Milestones** = a horizontally-scrolling **trophy shelf** (`MilestoneBadge`, 2-row `LazyHGrid`):
   18 icon badges, gold + bounce when earned, dim when locked. Grouped: getting-started → quest
-  volume (10/50/200) → streaks (3/7/14/30/100-day) → ranks (D→S) → systems (first gate, 3
+  volume (10/50/200) → streaks (3/7/14/30/100-day) → ranks (D→S) → systems (VIT 25, 3
   shields, Power 300). Append to `MilestoneData.all` to add more — the shelf scrolls to fit.
 
 ### Real-Life Rewards + Onboarding
@@ -202,8 +206,8 @@ real reward.
 - [x] Day detail view (tap calendar cell), shows shield earned
 - [x] Streak **earned by completing a quest** (not app-opens), with **Streak Shields** bridging missed days
 - [x] Gold rewards per quest
-- [x] Gates **stat-gated** (each themed to a stat), Locked / CLEARED, **pay one-time gold on clear**
-- [x] Shadow Army **removed** (was purposeless / cosmetic)
+- [x] **Gates removed** — redundant with the milestone shelf; replaced by the **Journal** tab. Shadow Army also gone.
+- [x] **4-tab structure**: Hunter (be) · Quests (do) · Journal (reflect) · Feats (achieve)
 - [x] Boss raids — stat/rank endgame goals that **pay gold once** when slain (`bossClaimMask`)
 - [x] Milestones grid — small early wins, **gold** when earned (incl. shield + gate ties)
 - [x] Completion = violet app-wide (quests, banner, gates CLEARED, ALL CLEAR, PERFECT DAY, READY)
@@ -212,9 +216,10 @@ real reward.
 - [x] **Local notifications** — repeating reminder + per-day streak-warning (cancelled when the day's done); `NotificationManager` in HunterStore, permission asked after onboarding
 - [x] **Settings screen** (`SettingsView`, gear on Hunter tab) — notifications on/off + reminder/warning times (`@AppStorage`), edit rewards, edit name, about/version
 - [x] **"Why did I miss" nudge** — when a quest goes 3 consecutive days un-done, a non-blocking gold banner on Quests offers to log why (preset reasons + optional note), one quest at a time, once per miss-episode (`currentNudge` / `MissReasonSheet`)
-- [x] **Insights page** (`InsightsView`, from Feats) — current/longest streak, total quests, gold; per-quest times-done + last-done; "why I missed" tally + recent log. Gives the `total*` counters a real purpose.
-- [x] **Daily reflection** — prompt-of-the-day on the Quests tab, one-line answer, stored in `Hunter.reflections`
-- [x] **Weekly AI coaching** — provider-agnostic `AICoach` + `GeminiCoach` (free tier; Claude-swappable), key in Keychain (Settings → AI Coach), Weekly Coaching panel in Insights sends the week's reflections + data → coaching summary with suggestions (`HunterStore.buildWeeklyContext` / `requestWeeklyCoaching`)
+- [x] **Journal tab** (`JournalView`) — daily reflection + weekly coaching + insights, all on one roomy page
+- [x] **Insights** — current/longest streak, total quests, gold; per-quest times-done + last-done; "why I missed" tally + recent log. Gives the `total*` counters a real purpose.
+- [x] **Daily reflection** — prompt-of-the-day, one-line answer, **+3 gold** on first save each day, stored in `Hunter.reflections`
+- [x] **Weekly AI coaching** — provider-agnostic `AICoach` + `GeminiCoach` (free tier; Claude-swappable), key in Keychain (Settings → AI Coach), sends the week's reflections + data → coaching summary with suggestions (`HunterStore.buildWeeklyContext` / `requestWeeklyCoaching`)
 - [x] **First-launch onboarding** — set hunter name + 5 real-life rewards
 - [x] **Reward Vault** — gold sink: claim real-life rewards per rank (Locked / CLAIM / CLAIMED), editable
 - [x] Rank-up overlay surfaces the unlocked real-life reward
@@ -262,4 +267,4 @@ real reward.
 
 *Last updated: June 2026 — quest rename/icons, +1 stat rebalance (~1yr E→S), streak shields,
 stat-gated gates, all-clear banner, violet completion sweep, Feats rework (gold-paying stat/rank
-bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations, settings screen, "why did I miss" nudge + Insights page, daily reflection + weekly Gemini AI coaching.*
+bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations, settings screen, "why did I miss" nudge + Insights page, daily reflection + weekly Gemini AI coaching, then restructured to 4 tabs (Gates removed → Journal tab).*

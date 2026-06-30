@@ -172,7 +172,6 @@ final class HunterStore {
         if isFirstOfDay { registerActiveDay() }
         checkRankUp()
         checkBosses()
-        checkGates()
         updateTodayStreakWarning()
         save()
         return true
@@ -332,6 +331,7 @@ final class HunterStore {
             refs[idx].prompt = todaysPrompt
         } else {
             refs.append(Reflection(date: today, prompt: todaysPrompt, answer: trimmed))
+            hunter.gold += 3   // small reward for reflecting (first time each day)
         }
         hunter.reflections = refs
         refreshTick += 1
@@ -378,17 +378,6 @@ final class HunterStore {
         hunter.questLastNudged = nudged
         refreshTick += 1
         save()
-    }
-
-    // Award a gate's one-time gold reward the first time it's cleared.
-    private func checkGates() {
-        for (i, gate) in GateData.all(for: hunter).enumerated() {
-            let bit = 1 << i
-            if gate.isCleared && gate.goldReward > 0 && (hunter.gateClaimMask & bit) == 0 {
-                hunter.gateClaimMask |= bit
-                hunter.gold += gate.goldReward
-            }
-        }
     }
 
     // Advances the streak when the first quest of a day is completed. Shields bridge

@@ -8,13 +8,10 @@ struct FeatsView: View {
         MilestoneData.all(for: store.hunter, hasPerfectDay: store.hasPerfectDay)
     }
 
-    @State private var showInsights = false
-
     var body: some View {
         ScrollView {
             VStack(spacing: 12) {
                 raidsHeader
-                insightsButton
                 SysSection(title: "BOSS RAID LOG")
                 ForEach(bosses) { boss in BossCard(boss: boss) }
                 SysSection(title: "MILESTONES").padding(.top, 4)
@@ -28,28 +25,6 @@ struct FeatsView: View {
             .padding(14)
         }
         .background(Color.clear)
-        .sheet(isPresented: $showInsights) { InsightsView(store: store) }
-    }
-
-    private var insightsButton: some View {
-        Button { showInsights = true } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "chart.bar.xaxis")
-                    .font(.system(size: 14))
-                    .foregroundStyle(Color.sysBlue)
-                Text("VIEW INSIGHTS")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(Color.textPrimary).tracking(1.5)
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12)).foregroundStyle(Color.textDim)
-            }
-            .padding(.horizontal, 14).padding(.vertical, 12)
-            .background(Color.sysCard2)
-            .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
     }
 
     private var raidsHeader: some View {
@@ -291,19 +266,20 @@ struct MilestoneData: Identifiable {
             .init(id:"m14", label:"A-Rank",       icon:"chevron.up.2",            isEarned: r >= 4),
             .init(id:"m15", label:"S-Rank",       icon:"crown.fill",              isEarned: r >= 5),
             // Systems
-            .init(id:"m16", label:"First Gate",   icon:"door.left.hand.open",     isEarned: hunter.statVIT >= 25),
+            .init(id:"m16", label:"VIT 25",       icon:"heart.fill",              isEarned: hunter.statVIT >= 25),
             .init(id:"m17", label:"3 Shields",    icon:"shield.lefthalf.filled",  isEarned: hunter.streakShields >= 3),
             .init(id:"m18", label:"Power 300",    icon:"bolt.fill",               isEarned: hunter.power >= 300),
         ]
     }
 }
 
-// MARK: - Insights
-struct InsightsView: View {
+// MARK: - Journal tab (daily reflection + insights + weekly coaching)
+struct JournalView: View {
     let store: HunterStore
-    @Environment(\.dismiss) private var dismiss
     @State private var coachingLoading = false
     @State private var coachingError: String? = nil
+    @State private var reflectionText: String = ""
+    @State private var editingReflection: Bool = false
 
     private var reasonTally: [(reason: String, count: Int)] {
         Dictionary(grouping: store.hunter.missLog, by: { $0.reason })
@@ -317,43 +293,76 @@ struct InsightsView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.sysBG.ignoresSafeArea()
-            VStack(spacing: 0) {
-                header
-                LinearGradient(colors: [.clear, .sysBlue.opacity(0.5), .clear],
-                               startPoint: .leading, endPoint: .trailing).frame(height: 1)
-                ScrollView {
-                    VStack(spacing: 14) {
-                        coachingSection
-                        overallCard
-                        byQuestSection
-                        reasonsSection
-                    }
-                    .padding(16)
-                }
+        ScrollView {
+            VStack(spacing: 14) {
+                reflectionSection
+                coachingSection
+                overallCard
+                byQuestSection
+                reasonsSection
             }
+            .padding(14)
         }
-        .presentationBackground(Color.sysBG)
+        .background(Color.clear)
     }
 
-    private var header: some View {
-        HStack {
-            Text("INSIGHTS")
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(Color.sysBlue).tracking(3)
-            Spacer()
-            Button { dismiss() } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color.textSecondary)
-                    .frame(width: 30, height: 30)
-                    .background(Color.sysCard2)
-                    .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+    // MARK: Daily reflection
+    private var reflectionSection: some View {
+        let answered = store.todaysReflection
+        let showInput = editingReflection || answered == nil
+        return VStack(spacing: 0) {
+            sectionHeader("DAILY REFLECTION")
+            VStack(alignment: .leading, spacing: 10) {
+                Text(store.todaysPrompt)
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color.textPrimary)
+                if showInput {
+                    TextField("", text: $reflectionText,
+                              prompt: Text("Jot a line…").foregroundColor(.textDim), axis: .vertical)
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundStyle(.white)
+                        .lineLimit(2...5)
+                        .padding(.horizontal, 10).padding(.vertical, 10)
+                        .background(Color.sysBG)
+                        .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
+                    Button {
+                        store.saveReflection(reflectionText)
+                        editingReflection = false
+                    } label: {
+                        Text("SAVE  ·  +3 GOLD")
+                            .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(2)
+                            .foregroundStyle(.black)
+                            .frame(maxWidth: .infinity).padding(.vertical, 11)
+                            .background(reflectionText.trimmingCharacters(in: .whitespaces).isEmpty
+                                        ? Color.sysBorder2 : Color.sysBlue)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(reflectionText.trimmingCharacters(in: .whitespaces).isEmpty)
+                } else if let r = answered {
+                    Text(r.answer)
+                        .font(.system(size: 12, design: .rounded))
+                        .foregroundStyle(Color.textSecondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 11)).foregroundStyle(Color.sysBlue)
+                        Text("Reflected today")
+                            .font(.system(size: 9, design: .monospaced)).foregroundStyle(Color.sysBlue)
+                        Spacer()
+                        Button { reflectionText = r.answer; editingReflection = true } label: {
+                            Text("EDIT")
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(Color.textSecondary).tracking(1)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
             }
+            .padding(12)
+            .background(Color.sysCard2)
         }
-        .padding(.horizontal, 20).padding(.vertical, 16)
-        .background(Color.sysPanel)
+        .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
+        .id(store.refreshTick)
     }
 
     private var coachingSection: some View {

@@ -9,7 +9,7 @@ struct ContentView: View {
     @State private var showLaunch: Bool = true
     @State private var onboarded: Bool = true
 
-    enum Tab { case hunter, quests, gates, feats }
+    enum Tab { case hunter, quests, journal, feats }
 
     var body: some View {
         ZStack {
@@ -52,10 +52,10 @@ struct ContentView: View {
             ZStack {
                 ParticleBackground()
                 switch selectedTab {
-                case .hunter: HunterView(store: store)
-                case .quests: QuestsView(store: store)
-                case .gates:  GatesView(store: store)
-                case .feats:  FeatsView(store: store)
+                case .hunter:  HunterView(store: store)
+                case .quests:  QuestsView(store: store)
+                case .journal: JournalView(store: store)
+                case .feats:   FeatsView(store: store)
                 }
             }
             .clipped()
@@ -83,10 +83,10 @@ struct SystemTabBar: View {
     @Binding var selected: ContentView.Tab
 
     private let tabs: [(tab: ContentView.Tab, icon: String, label: String)] = [
-        (.hunter, "shield.lefthalf.filled", "HUNTER"),
-        (.quests, "scroll",                 "QUESTS"),
-        (.gates,  "door.left.hand.open",    "GATES"),
-        (.feats,  "medal",                  "FEATS"),
+        (.hunter,  "shield.lefthalf.filled", "HUNTER"),
+        (.quests,  "scroll",                 "QUESTS"),
+        (.journal, "book.closed.fill",       "JOURNAL"),
+        (.feats,   "medal",                  "FEATS"),
     ]
 
     var body: some View {

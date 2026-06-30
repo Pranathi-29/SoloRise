@@ -5,8 +5,6 @@ struct QuestsView: View {
     @State private var showReward: QuestDefinition? = nil
     @State private var claimCounts: [QuestID: Int] = [:]
     @State private var nudgeQuest: QuestID? = nil
-    @State private var reflectionText: String = ""
-    @State private var editingReflection: Bool = false
 
     private let buffs: [(label: String, sfSymbol: String, color: Color, keyPath: WritableKeyPath<DailyLog, Bool>)] = [
         ("Hydration",    "drop.fill",  .sysGreen,  \.waterBuff),
@@ -60,8 +58,6 @@ struct QuestsView: View {
                         }
                     }
                 }
-                SysSection(title: "DAILY REFLECTION").padding(.top, 4)
-                reflectionCard
             }
             .padding(14)
             .animation(.easeOut(duration: 0.35), value: allCleared)
@@ -80,62 +76,6 @@ struct QuestsView: View {
                 }
             }
         }
-    }
-
-    // MARK: - Daily reflection
-    private var reflectionCard: some View {
-        let answered = store.todaysReflection
-        let showInput = editingReflection || answered == nil
-        return VStack(alignment: .leading, spacing: 10) {
-            Text(store.todaysPrompt)
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color.textPrimary)
-
-            if showInput {
-                TextField("", text: $reflectionText,
-                          prompt: Text("Jot a line…").foregroundColor(.textDim), axis: .vertical)
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(.white)
-                    .lineLimit(1...4)
-                    .padding(.horizontal, 10).padding(.vertical, 10)
-                    .background(Color.sysBG)
-                    .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
-                Button {
-                    store.saveReflection(reflectionText)
-                    editingReflection = false
-                } label: {
-                    Text("SAVE")
-                        .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(2)
-                        .foregroundStyle(.black)
-                        .frame(maxWidth: .infinity).padding(.vertical, 10)
-                        .background(reflectionText.trimmingCharacters(in: .whitespaces).isEmpty
-                                    ? Color.sysBorder2 : Color.sysBlue)
-                }
-                .buttonStyle(.plain)
-                .disabled(reflectionText.trimmingCharacters(in: .whitespaces).isEmpty)
-            } else if let r = answered {
-                Text(r.answer)
-                    .font(.system(size: 12, design: .rounded))
-                    .foregroundStyle(Color.textSecondary)
-                HStack(spacing: 6) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 11)).foregroundStyle(Color.sysBlue)
-                    Text("Reflected today")
-                        .font(.system(size: 9, design: .monospaced)).foregroundStyle(Color.sysBlue)
-                    Spacer()
-                    Button { reflectionText = r.answer; editingReflection = true } label: {
-                        Text("EDIT")
-                            .font(.system(size: 9, weight: .bold, design: .monospaced))
-                            .foregroundStyle(Color.textSecondary).tracking(1)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(14)
-        .background(Color.sysCard2)
-        .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
-        .id(store.refreshTick)
     }
 
     // MARK: - Miss nudge banner
