@@ -356,30 +356,30 @@ struct BuffBadge: View {
     let onToggle: () -> Void
 
     var body: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 5) {                       // ← gap between icon / name / status
             ZStack {
                 Rectangle()
                     .fill(isOn ? color.opacity(0.15) : Color.sysBorder.opacity(0.15))
-                    .frame(width: 40, height: 40)
+                    .frame(width: 32, height: 32)  // ← icon tile size
                 Image(systemName: sfSymbol)
-                    .font(.system(size: 18, weight: .medium))
+                    .font(.system(size: 15, weight: .medium))   // ← icon glyph size
                     .foregroundStyle(isOn ? color : Color.textDim)
                     .shadow(color: isOn ? color.opacity(0.6) : .clear, radius: 6)
             }
 
             Text(name)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .font(.system(size: 10, weight: .semibold, design: .rounded))
                 .foregroundStyle(isOn ? Color.textPrimary : Color.textSecondary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
 
             Text(isOn ? "DONE" : "—")
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
                 .foregroundStyle(isOn ? color : Color.textDim)
                 .tracking(1)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(.vertical, 9)                     // ← overall tile height
         .background(isOn ? color.opacity(0.06) : Color.sysCard2)
         .overlay(Rectangle().stroke(isOn ? color.opacity(0.4) : Color.sysBorder, lineWidth: 1))
         .overlay(alignment: .top) {

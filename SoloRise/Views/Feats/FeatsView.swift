@@ -85,7 +85,7 @@ struct BossCard: View {
     var pct: CGFloat { min(CGFloat(boss.current) / CGFloat(boss.threshold), 1.0) }
 
     var body: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {                       // ← gap between rows
             HStack(spacing: 12) {
                 // SF Symbol boss icon
                 ZStack {
@@ -94,25 +94,25 @@ struct BossCard: View {
                         .overlay(Rectangle().stroke(
                             boss.isSlain ? Color.sysGoldDim : boss.color.opacity(0.3), lineWidth: 1))
                     Image(systemName: boss.sfSymbol)
-                        .font(.system(size: 26, weight: .medium))
+                        .font(.system(size: 20, weight: .medium))   // ← icon glyph size
                         .foregroundStyle(boss.isSlain ? Color.sysGold : boss.color)
                         .shadow(color: (boss.isSlain ? Color.sysGold : boss.color).opacity(0.6), radius: 8)
                 }
-                .frame(width: 56, height: 56)
+                .frame(width: 44, height: 44)       // ← icon tile size
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(boss.name)
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
                         .foregroundStyle(boss.isSlain ? Color.sysGold : Color.textPrimary)
                     Text(boss.description)
-                        .font(.system(size: 11, design: .rounded))
+                        .font(.system(size: 10, design: .rounded))
                         .foregroundStyle(Color.textSecondary)
                 }
                 Spacer()
                 if boss.isSlain {
                     Image(systemName: "checkmark.seal.fill")
                         .foregroundStyle(Color.sysGold)
-                        .font(.system(size: 22))
+                        .font(.system(size: 18))
                         .shadow(color: Color.sysGold.opacity(0.5), radius: 6)
                 }
             }
@@ -127,7 +127,7 @@ struct BossCard: View {
                         .shadow(color: (boss.isSlain ? Color.sysGold : boss.color).opacity(0.5), radius: 4)
                 }
             }
-            .frame(height: 5)
+            .frame(height: 4)
 
             HStack {
                 Text("\(boss.current) / \(boss.threshold)")
@@ -145,7 +145,7 @@ struct BossCard: View {
                 }
             }
         }
-        .padding(14)
+        .padding(11)                               // ← overall card padding
         .background(boss.isSlain ? Color.sysGold.opacity(0.04) : Color.sysCard2)
         .overlay(Rectangle().stroke(
             boss.isSlain ? Color.sysGoldDim : Color.sysBorder, lineWidth: 1))
