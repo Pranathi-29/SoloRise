@@ -207,29 +207,7 @@ final class HunterStore {
                                   to: cal.startOfDay(for: .now)).day ?? 0
     }
 
-    // MARK: - Daily reflections
-    static let dailyPrompts: [String] = [
-        "What's one small win you had today?",
-        "Which quest felt hardest today, and why?",
-        "What made it easier to show up today?",
-        "What's one thing you'll do differently tomorrow?",
-        "Which habit are you most proud of lately?",
-        "What got in the way today?",
-        "How has your energy been lately?",
-        "What's pulling you toward your next reward?",
-        "Which quest do you keep avoiding — any idea why?",
-        "What would make tomorrow's training easier?",
-        "What's one reason today's effort was worth it?",
-        "How do you feel about your progress this week?",
-        "What's a tiny adjustment that could protect your streak?",
-        "What reward are you working toward right now?",
-    ]
-
-    var todaysPrompt: String {
-        let day = Calendar.current.ordinality(of: .day, in: .era, for: .now) ?? 0
-        return Self.dailyPrompts[day % Self.dailyPrompts.count]
-    }
-
+    // MARK: - Daily reflections ("what went well / what got in the way")
     var todaysReflection: Reflection? {
         let today = Calendar.current.startOfDay(for: .now)
         return hunter.reflections.first { Calendar.current.isDate($0.date, inSameDayAs: today) }
@@ -305,26 +283,34 @@ final class HunterStore {
         }
 
         let refs = hunter.reflections.filter { $0.date >= weekAgo }
+            .sorted { $0.date < $1.date }
         if !refs.isEmpty {
+            let df = DateFormatter(); df.dateFormat = "EEE"
             lines.append("")
-            lines.append("Daily reflections this week:")
-            for r in refs where !r.answer.isEmpty {
-                lines.append("- \"\(r.prompt)\" → \(r.answer)")
+            lines.append("Daily reflections this week (what went well / what got in the way):")
+            for r in refs {
+                var parts: [String] = []
+                if !r.wentWell.isEmpty { parts.append("went well: \(r.wentWell)") }
+                if !r.gotInWay.isEmpty { parts.append("got in the way: \(r.gotInWay)") }
+                if !parts.isEmpty {
+                    lines.append("- \(df.string(from: r.date)) — \(parts.joined(separator: "; "))")
+                }
             }
         }
         return lines.joined(separator: "\n")
     }
 
-    func saveReflection(_ answer: String) {
-        let trimmed = answer.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
+    func saveReflection(wentWell: String, gotInWay: String) {
+        let well = wentWell.trimmingCharacters(in: .whitespacesAndNewlines)
+        let blocked = gotInWay.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !well.isEmpty || !blocked.isEmpty else { return }
         let today = Calendar.current.startOfDay(for: .now)
         var refs = hunter.reflections
         if let idx = refs.firstIndex(where: { Calendar.current.isDate($0.date, inSameDayAs: today) }) {
-            refs[idx].answer = trimmed
-            refs[idx].prompt = todaysPrompt
+            refs[idx].wentWell = well
+            refs[idx].gotInWay = blocked
         } else {
-            refs.append(Reflection(date: today, prompt: todaysPrompt, answer: trimmed))
+            refs.append(Reflection(date: today, wentWell: well, gotInWay: blocked))
         }
         hunter.reflections = refs
         refreshTick += 1

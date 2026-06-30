@@ -64,7 +64,7 @@ SoloRise/
 |-----|-------------|
 | **Hunter** | Character profile, stats, power bar, promotion requirements, activity ring, rewards (gold tile), settings (gear) |
 | **Quests** | Daily quest checklist + all-clear banner + bonus quests (streak shields) + miss nudge |
-| **Journal** | Daily reflection (+3 gold) + weekly AI coaching + insights (stats, by-quest, why-I-missed) |
+| **Journal** | Daily reflection (went well / got in the way) + weekly AI coaching + insights (stats, by-quest, why-I-missed) |
 | **Feats** | Boss raids and milestone trophy shelf |
 
 ---
@@ -124,8 +124,9 @@ the gap and **continue** the streak; a gap bigger than your shields restarts it 
 
 ### Journal (Journal tab) — replaced the old Gates tab
 `JournalView` (defined in `FeatsView.swift`) holds three stacked sections:
-- **Daily Reflection** — prompt-of-the-day + a line; first save each day grants **+3 gold**
-  (`HunterStore.saveReflection`). This replaced the gate gold and feeds the AI coach.
+- **Daily Reflection** — two short fields, "what went well" / "what got in the way"
+  (`HunterStore.saveReflection(wentWell:gotInWay:)`). No reward attached. Feeds the coach as
+  dated, labeled lines **alongside** the logged miss-reasons so it can correlate the two.
 - **Weekly Coaching** — Gemini summary + suggestions (see Real-Life Rewards / AI section).
 - **Insights** — current/longest streak, total quests, gold; per-quest times-done + last-done;
   "why I missed" tally + recent log.
@@ -218,8 +219,8 @@ real reward.
 - [x] **"Why did I miss" nudge** — when a quest goes 3 consecutive days un-done, a non-blocking gold banner on Quests offers to log why (preset reasons + optional note), one quest at a time, once per miss-episode (`currentNudge` / `MissReasonSheet`)
 - [x] **Journal tab** (`JournalView`) — daily reflection + weekly coaching + insights, all on one roomy page
 - [x] **Insights** — current/longest streak, total quests, gold; per-quest times-done + last-done; "why I missed" tally + recent log. Gives the `total*` counters a real purpose.
-- [x] **Daily reflection** — prompt-of-the-day, one-line answer, **+3 gold** on first save each day, stored in `Hunter.reflections`
-- [x] **Weekly AI coaching** — provider-agnostic `AICoach` + `GeminiCoach` (free tier; Claude-swappable), key in Keychain (Settings → AI Coach), sends the week's reflections + data → coaching summary with suggestions (`HunterStore.buildWeeklyContext` / `requestWeeklyCoaching`)
+- [x] **Daily reflection** — two fields (what went well / what got in the way), stored in `Hunter.reflections`; feeds the coach with the miss-reasons
+- [x] **Weekly AI coaching** — provider-agnostic `AICoach` + `GeminiCoach` (free tier; Claude-swappable), key in Keychain (Settings → AI Coach). Sends **only habit-relevant data** (per-habit weekly completions, all-time counts, streak, goals, miss-reasons, reflections — no stats/rank/power/gold). Coach is instructed to focus purely on *which habits aren't sticking, why, and what to try* — never number-chasing. (`HunterStore.buildWeeklyContext` / `requestWeeklyCoaching`)
 - [x] **First-launch onboarding** — set hunter name + 5 real-life rewards
 - [x] **Reward Vault** — gold sink: claim real-life rewards per rank (Locked / CLAIM / CLAIMED), editable
 - [x] Rank-up overlay surfaces the unlocked real-life reward
@@ -267,4 +268,4 @@ real reward.
 
 *Last updated: June 2026 — quest rename/icons, +1 stat rebalance (~1yr E→S), streak shields,
 stat-gated gates, all-clear banner, violet completion sweep, Feats rework (gold-paying stat/rank
-bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations, settings screen, "why did I miss" nudge + Insights page, daily reflection + weekly Gemini AI coaching, then restructured to 4 tabs (Gates removed → Journal tab).*
+bosses + small gold milestones), real-life Reward Vault + first-launch onboarding (gold sink), streak now earned by completing a quest, Shadow Army removed, gates pay gold on clear, dead-code cleanup, local notifications, juice animations, settings screen, "why did I miss" nudge + Insights page, daily reflection + weekly Gemini AI coaching, then restructured to 4 tabs (Gates removed → Journal tab); reflection reworked to went-well/got-in-the-way; coach refocused on habits-not-numbers.*

@@ -278,7 +278,8 @@ struct JournalView: View {
     let store: HunterStore
     @State private var coachingLoading = false
     @State private var coachingError: String? = nil
-    @State private var reflectionText: String = ""
+    @State private var wentWellText: String = ""
+    @State private var gotInWayText: String = ""
     @State private var editingReflection: Bool = false
 
     private var reasonTally: [(reason: String, count: Int)] {
@@ -306,50 +307,45 @@ struct JournalView: View {
         .background(Color.clear)
     }
 
-    // MARK: Daily reflection
+    // MARK: Daily reflection (what went well / what got in the way)
     private var reflectionSection: some View {
         let answered = store.todaysReflection
         let showInput = editingReflection || answered == nil
         return VStack(spacing: 0) {
             sectionHeader("DAILY REFLECTION")
-            VStack(alignment: .leading, spacing: 10) {
-                Text(store.todaysPrompt)
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color.textPrimary)
+            VStack(alignment: .leading, spacing: 12) {
                 if showInput {
-                    TextField("", text: $reflectionText,
-                              prompt: Text("Jot a line…").foregroundColor(.textDim), axis: .vertical)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundStyle(.white)
-                        .lineLimit(2...5)
-                        .padding(.horizontal, 10).padding(.vertical, 10)
-                        .background(Color.sysBG)
-                        .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
+                    reflectionField(label: "WHAT WENT WELL TODAY?",
+                                    text: $wentWellText, placeholder: "A win, big or small…")
+                    reflectionField(label: "WHAT GOT IN THE WAY?",
+                                    text: $gotInWayText, placeholder: "What made it harder…")
+                    let empty = wentWellText.trimmingCharacters(in: .whitespaces).isEmpty
+                             && gotInWayText.trimmingCharacters(in: .whitespaces).isEmpty
                     Button {
-                        store.saveReflection(reflectionText)
+                        store.saveReflection(wentWell: wentWellText, gotInWay: gotInWayText)
                         editingReflection = false
                     } label: {
                         Text("SAVE")
                             .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(2)
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity).padding(.vertical, 11)
-                            .background(reflectionText.trimmingCharacters(in: .whitespaces).isEmpty
-                                        ? Color.sysBorder2 : Color.sysBlue)
+                            .background(empty ? Color.sysBorder2 : Color.sysBlue)
                     }
                     .buttonStyle(.plain)
-                    .disabled(reflectionText.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .disabled(empty)
                 } else if let r = answered {
-                    Text(r.answer)
-                        .font(.system(size: 12, design: .rounded))
-                        .foregroundStyle(Color.textSecondary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if !r.wentWell.isEmpty { answeredRow("WENT WELL", r.wentWell, .sysGreen) }
+                    if !r.gotInWay.isEmpty { answeredRow("GOT IN THE WAY", r.gotInWay, .sysRed) }
                     HStack(spacing: 6) {
                         Image(systemName: "checkmark.circle.fill")
                             .font(.system(size: 11)).foregroundStyle(Color.sysBlue)
                         Text("Reflected today")
                             .font(.system(size: 9, design: .monospaced)).foregroundStyle(Color.sysBlue)
                         Spacer()
-                        Button { reflectionText = r.answer; editingReflection = true } label: {
+                        Button {
+                            wentWellText = r.wentWell; gotInWayText = r.gotInWay
+                            editingReflection = true
+                        } label: {
                             Text("EDIT")
                                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                                 .foregroundStyle(Color.textSecondary).tracking(1)
@@ -363,6 +359,34 @@ struct JournalView: View {
         }
         .overlay(Rectangle().stroke(Color.sysBorder, lineWidth: 1))
         .id(store.refreshTick)
+    }
+
+    private func reflectionField(label: String, text: Binding<String>, placeholder: String) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundStyle(Color.textSecondary).tracking(1)
+            TextField("", text: text,
+                      prompt: Text(placeholder).foregroundColor(.textDim), axis: .vertical)
+                .font(.system(size: 12, design: .rounded))
+                .foregroundStyle(.white)
+                .lineLimit(1...3)
+                .padding(.horizontal, 10).padding(.vertical, 9)
+                .background(Color.sysBG)
+                .overlay(Rectangle().stroke(Color.sysBorder2, lineWidth: 1))
+        }
+    }
+
+    private func answeredRow(_ label: String, _ value: String, _ color: Color) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(label)
+                .font(.system(size: 8, weight: .bold, design: .monospaced))
+                .foregroundStyle(color).tracking(1)
+            Text(value)
+                .font(.system(size: 12, design: .rounded))
+                .foregroundStyle(Color.textPrimary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private var coachingSection: some View {

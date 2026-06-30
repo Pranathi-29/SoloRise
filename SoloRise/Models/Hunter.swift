@@ -20,12 +20,13 @@ struct MissReason: Codable, Identifiable {
     var note: String
 }
 
-// A daily reflection answer — accumulates as input for the weekly AI coaching summary.
+// A daily reflection — "what went well / what got in the way" — accumulates as input
+// for the weekly AI coaching summary (alongside the logged miss reasons).
 struct Reflection: Codable, Identifiable {
     var id: UUID = UUID()
     var date: Date
-    var prompt: String
-    var answer: String
+    var wentWell: String
+    var gotInWay: String
 }
 
 enum HunterRank: Int, Codable, CaseIterable {
