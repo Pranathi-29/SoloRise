@@ -329,7 +329,7 @@ struct JournalView: View {
                         store.saveReflection(reflectionText)
                         editingReflection = false
                     } label: {
-                        Text("SAVE  ·  +3 GOLD")
+                        Text("SAVE")
                             .font(.system(size: 10, weight: .bold, design: .monospaced)).tracking(2)
                             .foregroundStyle(.black)
                             .frame(maxWidth: .infinity).padding(.vertical, 11)

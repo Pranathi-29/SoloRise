@@ -278,26 +278,20 @@ final class HunterStore {
             if log.recoveryDone  { counts[.recovery, default: 0] += 1 }
         }
 
-        let rankLetters = ["E", "D", "C", "B", "A", "S"]
         var lines: [String] = []
-        lines.append("Hunter: \(hunter.name), Rank \(hunter.rank.label) (\(hunter.rank.title)).")
-        lines.append("Stats — STR \(hunter.statSTR), INT \(hunter.statINT), VIT \(hunter.statVIT), WIS \(hunter.statWIS); Power \(hunter.power).")
-        lines.append("Streak \(hunter.streak) days (longest \(hunter.maxStreak)); Gold \(hunter.gold); Shields \(hunter.streakShields).")
+        lines.append("Hunter: \(hunter.name). Current consistency: \(hunter.streak)-day streak (longest ever \(hunter.maxStreak)).")
         lines.append("")
-        lines.append("Quest completions this week (out of 7 days):")
+        lines.append("Habits this week (days completed out of the last 7; all-time total in parens):")
         for q in QuestID.allCases {
             let name = QuestDefinition.all.first { $0.questID == q }?.name ?? q.rawValue
-            lines.append("- \(name): \(counts[q] ?? 0)/7")
+            lines.append("- \(name): \(counts[q] ?? 0)/7  (all-time \(timesDone(q)))")
         }
 
-        let goals = hunter.rankRewards.filter { !$0.title.isEmpty }
+        let goals = hunter.rankRewards.filter { !$0.title.isEmpty && !$0.claimed }
         if !goals.isEmpty {
             lines.append("")
-            lines.append("Goals (real-life rewards they're working toward):")
-            for g in goals {
-                let letter = rankLetters.indices.contains(g.rankRaw) ? rankLetters[g.rankRaw] : "?"
-                lines.append("- \(letter)-Rank: \(g.title)\(g.claimed ? " (already claimed)" : "")")
-            }
+            lines.append("Real-life rewards they're working toward (their motivation):")
+            for g in goals { lines.append("- \(g.title)") }
         }
 
         let misses = hunter.missLog.filter { $0.date >= weekAgo }
@@ -331,7 +325,6 @@ final class HunterStore {
             refs[idx].prompt = todaysPrompt
         } else {
             refs.append(Reflection(date: today, prompt: todaysPrompt, answer: trimmed))
-            hunter.gold += 3   // small reward for reflecting (first time each day)
         }
         hunter.reflections = refs
         refreshTick += 1
